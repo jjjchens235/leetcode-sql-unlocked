@@ -17,6 +17,24 @@ class WebHandler():
         self.db_win = None
         self.solution_win = None
 
+    def get_question_elements(self):
+        url = 'https://leetcode.com/problemset/database/?'
+        self.driver.get(url)
+        WebDriverWait(self.driver, 30).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
+        #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in js
+        element = self.driver.find_element_by_class_name('reactable-data')
+        text =  [' '.join(line.split()) for line in element.text.split('\n')]
+        question_elements = {}
+
+        for i, line in enumerate(text):
+            if (i+1) % 3 == 0:
+                q_num = int(text[i-2])
+                level = line.split()[1].lower()
+                q_name = text[i-2] + ': ' + text[i-1] + ', ' + level
+                question_elements[q_num] = {'level':level, 'name':q_name}
+
+        return question_elements
+
     def close_window(self, window):
         if window and len(self.driver.window_handles) > 1:
             self.driver.switch_to.window(window)
@@ -31,23 +49,6 @@ class WebHandler():
     def close_all_windows():
         #see if this works, I'm calling Driver.py method
         self.driver.quit()
-
-    def get_questions_dict(self):
-        url = 'https://leetcode.com/problemset/database/?'
-        self.driver.get(url)
-        WebDriverWait(self.driver, 30).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
-        #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in javascript
-        element = self.driver.find_element_by_class_name('reactable-data')
-        text =  [' '.join(line.split()) for line in element.text.split('\n')]
-        questions = {}
-
-        for i, line in enumerate(text):
-            if (i+1) % 3 == 0:
-                q_num = int(text[i-2])
-                level = line.split()[1].lower()
-                q_name = text[i-2] + ': ' + text[i-1] + ', ' + level
-                questions[q_num] = {'level':level, 'name':q_name}
-        return questions
 
     def open_new_win(self, url):
         '''

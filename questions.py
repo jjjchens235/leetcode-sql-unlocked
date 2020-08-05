@@ -7,6 +7,7 @@ import sys
 import pprint
 from collections import defaultdict
 import time
+from driver import Driver
 
 def print_file(txt):
     date = datetime.now().strftime('%Y-%m-%d-%M')
@@ -31,27 +32,10 @@ class Question:
 class QuestionList:
     DEFAULT_NUM_TO_DISPLAY = 15
 
-    def __init__(self, questions, curr_log_num):
+    def __init__(self, question_elements, curr_log_num):
         
         self.question_nodes = {}
         self.current = self.create_q_nodes(question_elements, curr_log_num) 
-
-    def get_question_elements(self):
-        url = 'https://leetcode.com/problemset/database/?'
-        self.driver.get(url)
-        WebDriverWait(self.driver, 30).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
-        #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in javascript
-        element = self.driver.find_element_by_class_name('reactable-data')
-        text =  [' '.join(line.split()) for line in element.text.split('\n')]
-        question_elements = {}
-
-        for i, line in enumerate(text):
-            if (i+1) % 3 == 0:
-                q_num = int(text[i-2])
-                level = line.split()[1].lower()
-                q_name = text[i-2] + ': ' + text[i-1] + ', ' + level
-                question_elements[q_num] = {'level':level, 'name':q_name}
-        return question_elements
 
 
     def create_q_nodes(self, question_elements, curr_log_num):

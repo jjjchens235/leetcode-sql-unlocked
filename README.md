@@ -1,4 +1,6 @@
 
+#Issue One
+
 I'm not sure how to delegate the question_elements() method. There are a few moving pieces here that make it complicated. Firstly, question elements is needed by the question class, so should we let question class handle it.
 
 #Option 1
@@ -9,3 +11,11 @@ Let's say  web_handler class is the one that gets question_elements. But we save
 And from log class, we pass this in to questions class.
 
 
+So since Option 2 is better, where do we start ?
+
+Let's first move question elements to the web_driver class.
+Let's then update leetcode_sql_unlocked.py
+
+The logic in leetcocde_unlocked.py, lets call it main(), is that we create a HistLog object. The HistLog object then calls a method called is_stale_questions()
+
+	

@@ -2,6 +2,7 @@ from help_menu import HelpMenu
 from questions import QuestionList
 from driver import Driver
 from web_handler import WebHandler
+from log import HistLog
 import os
 import re
 import time
@@ -44,6 +45,11 @@ def output_question_state():
     maybe delete it
     '''
     pass
+
+def is_stale_file(file_path, days_till_stale=13):
+    mtime = os.path.getmtime(path) 
+    return (datetime.now() - datetime.fromtimestamp(mtime)).days > days_till_stale:
+        
 
 def print_options(s, n_sleep=1):
     print('\n')
@@ -162,13 +168,30 @@ def options(user_input, question_list, web_handler):
         return True
 
 
-
+DRIVER_DIR = 'drivers'
+DRIVER = 'chromedriver'
+LOG_DIR = 'logs'
+ERROR_LOG = 'error.log'
+Q_ELEMENTS_LOG = 'q_elements.log'
+Q_STATUS_LOG = 'q_status.log'
 
 #--- what i want to build using driver class
-if not os.path.exists('drivers'):
-    os.mkdir('drivers')
+if not os.path.exists(DRIVER_DIR):
+    os.mkdir(DRIVER_DIR)
+
+if not os.path.exists(LOG_DIR):
+    os.mkdir(LOG_DIR)
+
 driver_path = os.path.join('drivers','chromedriver') 
-web_handler = WebHandler(Driver.get_driver(driver_path))
+driver = Driver.get_driver(driver_path)
+web_handler = WebHandler(driver)
+
+hist_log = HistLog(os.path.join(LOG_DIR, Q_ELEMENTS_LOG), os.path.join(LOG_DIR, Q_STATUS_LOG))
+if is_stale_file(hist_log.q_elements_path):
+    question_elements = web_handler.get_question_elements()
+else:
+    question_elements = hist_log.read(hist_log.q_elements_path)
+
 
 
 #------ what i have currently
@@ -192,9 +215,8 @@ driver.get('https://yahoo.com')
 
 #questions_dict = web_handler.get_questions_dict()
 
-questions_dict = temp_get_questions()
 curr_log_num = 584
-ql = QuestionList(questions_dict, curr_log_num)
+ql = QuestionList(driver, question_elements, curr_log_num)
 help_menu = HelpMenu()
 is_continue = True
 while is_continue:
