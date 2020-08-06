@@ -151,6 +151,6 @@
         'name': '1501: Countries You Can Safely Invest In, medium'},
  1511: {'level': 'easy', 'name': '1511: Customer Order Frequency, easy'},
  1517: {'level': 'easy', 'name': '1517: Find Users With Valid E-Mails, easy'},
- 1527: {'level': 'easy', 'name': '1527: Patients With a Condition New, easy'},
+ 1527: {'level': 'easy', 'name': '1527: Patients With a Condition, easy'},
  1532: {'level': 'medium',
         'name': '1532: The Most Recent Three Orders New, medium'}}

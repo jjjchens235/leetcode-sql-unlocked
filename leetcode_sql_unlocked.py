@@ -6,6 +6,7 @@ from log import HistLog
 import os
 import re
 import time
+from datetime import datetime
 
 def temp_get_questions():
     import ast
@@ -47,8 +48,8 @@ def output_question_state():
     pass
 
 def is_stale_file(file_path, days_till_stale=13):
-    mtime = os.path.getmtime(path) 
-    return (datetime.now() - datetime.fromtimestamp(mtime)).days > days_till_stale:
+    mtime = os.path.getmtime(file_path) 
+    return (datetime.now() - datetime.fromtimestamp(mtime)).days > days_till_stale
         
 
 def print_options(s, n_sleep=1):
@@ -85,7 +86,7 @@ def next_option(user_input, question_list):
     else:
         print_options("Invalid input!! Do you want to go to next question? Either use 'n' or try by level i.e. 'n e' for next easy, 'n m', 'n h'")
 
-def question_by_number_option(user_input, question_list, web_handler):
+def question_by_number_option(user_input, question_list, hist_log, web_handler):
     '''
     Checks that the user input is a string that starts with q and ends with a number
     If the input is valid, change question to number inputted
@@ -98,7 +99,13 @@ def question_by_number_option(user_input, question_list, web_handler):
         try:
             question_list.select_question_by_number(q_num)
             print('made it here')
-            web_handler.get_question(q_num)
+            try:
+                prev_save_url = hist_log.q_state['url'][q_num]
+            except KeyError:
+                prev_save_url = None
+            new_save_url = web_handler.open_question(q_num, prev_save_url)
+            print('save_url leetcode_unlocked.py :' + new_save_url)
+            hist_log.update_q_state(q_num, new_save_url)
         except KeyError:
             print_options("Question number inputted is not on question list. Please enter valid question number, press 'd' to see list of questions",1.5)
     else:
@@ -132,7 +139,7 @@ def exit_option():
     print("Exiting program\n")
     return False
 
-def options(user_input, question_list, web_handler):
+def options(user_input, question_list, hist_log, web_handler):
 
         valid_start_inputs = ['h', 'n', 'q', 's', 'd', 'e']
 
@@ -151,7 +158,7 @@ def options(user_input, question_list, web_handler):
                 elif user_input == ('quit'):
                     return exit_option()
                 else:
-                    question_by_number_option(user_input, question_list, web_handler)
+                    question_by_number_option(user_input, question_list, hist_log, web_handler)
             elif start_input == 's':
                 pass
             elif start_input == 'd':
@@ -173,9 +180,8 @@ DRIVER = 'chromedriver'
 LOG_DIR = 'logs'
 ERROR_LOG = 'error.log'
 Q_ELEMENTS_LOG = 'q_elements.log'
-Q_STATUS_LOG = 'q_status.log'
+Q_STATE_LOG = 'q_state.log'
 
-#--- what i want to build using driver class
 if not os.path.exists(DRIVER_DIR):
     os.mkdir(DRIVER_DIR)
 
@@ -183,42 +189,20 @@ if not os.path.exists(LOG_DIR):
     os.mkdir(LOG_DIR)
 
 driver_path = os.path.join('drivers','chromedriver') 
-driver = Driver.get_driver(driver_path)
-web_handler = WebHandler(driver)
+web_handler = WebHandler(Driver.get_driver(driver_path))
+hist_log = HistLog(os.path.join(LOG_DIR, Q_ELEMENTS_LOG), os.path.join(LOG_DIR, Q_STATE_LOG))
 
-hist_log = HistLog(os.path.join(LOG_DIR, Q_ELEMENTS_LOG), os.path.join(LOG_DIR, Q_STATUS_LOG))
-if is_stale_file(hist_log.q_elements_path):
-    question_elements = web_handler.get_question_elements()
+if not os.path.exists(hist_log.q_elements_path) or is_stale_file(hist_log.q_elements_path):
+    q_elements = web_handler.get_question_elements()
+    hist_log.write_dict(q_elements, hist_log.q_elements_path)
 else:
-    question_elements = hist_log.read(hist_log.q_elements_path)
+    q_elements = hist_log.q_elements
 
 
-
-#------ what i have currently
-
-'''
-driver = webdriver.Chrome(executable_path='/Users/jwong/Cabinet/Programming/Python/bing-rewards-master/BingRewards/drivers/chromedriver')
-url = 'https://leetcode.com/problemset/database/?'
-driver.get(url)
-WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
-#note that this element can only be found using selenium because the table is generated after the fact in javascript
-element = driver.find_element_by_class_name('reactable-data')
-text =  [' '.join(line.split()) for line in element.text.split('\n')]
-driver.get('https://yahoo.com')
-'''
-
-
-
-
-
-
-
-#questions_dict = web_handler.get_questions_dict()
-
-curr_log_num = 584
-ql = QuestionList(driver, question_elements, curr_log_num)
+#curr_log_num = 584
+ql = QuestionList(q_elements, hist_log.q_state['current'])
 help_menu = HelpMenu()
 is_continue = True
 while is_continue:
     user_input = clean_user_input(input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=ql.current.name)))
-    is_continue = options(user_input, ql, web_handler)
+    is_continue = options(user_input, ql, hist_log, web_handler)

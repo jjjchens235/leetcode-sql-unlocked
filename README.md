@@ -18,4 +18,18 @@ Let's then update leetcode_sql_unlocked.py
 
 The logic in leetcocde_unlocked.py, lets call it main(), is that we create a HistLog object. The HistLog object then calls a method called is_stale_questions()
 
+
+
+
+
+
+#Issue two - creating and reading in log question status
+
+For q_elements log, we want to refresh from web if the last time we pulled was more than 13 days ago.
+Or, if the elements log doesn't exist.
+Else we just read in the last log
+
+For q_state, this is where I'm stuck. HEre are the possiblities:
+1. 
+
 	

@@ -2,7 +2,7 @@ import os
 import ast
 from datetime import datetime
 from dateutil import tz
-
+import pprint
 
 
 class HistLog:
@@ -14,24 +14,51 @@ class HistLog:
     __MAX_HIST_LEN         = 5 # days
 
 
-    # {'current' : q_num, 'url' : {q_num: url}}
-    def __init__(self, q_elements_path, q_status_path, curr_q_datetime=datetime.now()):
+    def __init__(self, q_elements_path, q_state_path, curr_q_datetime=datetime.now()):
         self.q_elements_path = q_elements_path
-        self.q_status_path = q_status_path
+        self.q_state_path = q_state_path
 
         self.__curr_q_datetime = curr_q_datetime.replace(tzinfo=self.__LOCAL_TIMEZONE)
-        self.q_elements = self.__read_dict(run_path)
-        self.q_status = self.__read_dict(search_path)
+        self.q_elements = self.__read_dict(q_elements_path)
+        # q_state = {'current' : q_num, 'url' : {q_num: url}}
+        self.q_state = self.__read_dict(q_state_path)
+        if self.q_state is None:
+            self.q_state = {'current':175,'url':{}}
 
     def __read_dict(self, path):
-        if not os.path.exists(path):
-            return {}
-        else:
-            with open(path, "r") as log:
-                return [line.strip("\n") for line in log.readlines()]
+        if os.path.exists(path):
+            try:
+                file = open(path, "r")
+                return ast.literal_eval(file.read())
+            except:
+                pass
+        return None
+
+    def write_dict(self, dict, path):
+        file=open(path, 'w')
+        pprint.pprint(dict, file)
+
+    def update_q_current(self, q_num):
+        self.q_state['current'] = q_num
+
+    def update_q_url(self, q_num, url):
+        self.q_state['url'][q_num] = url
+
+    def update_q_state(self, q_num, url):
+        self.update_q_current(q_num)
+        self.update_q_url(q_num, url)
+        self.write_dict(self.q_state, self.q_state_path)
 
 
-    def __read(self, path):
+
+
+
+
+
+
+
+    #----------    potentially deprec ------------------------
+    def __read_deprec(self, path):
         if not os.path.exists(path):
             return []
         else:
@@ -80,8 +107,6 @@ class HistLog:
     def get_search_hist(self):
         return self.__search_hist
 
-    def write(self, dic):
-        pass
 
     def deprec_write(self, completion, search_hist):
         self.__completion.update(completion)

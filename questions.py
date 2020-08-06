@@ -48,9 +48,9 @@ class QuestionList:
         prev_q_med = None
         prev_q_hard = None
 
-        for q_num in questions.keys():
-            name = questions[q_num]['name']
-            level = questions[q_num]['level']
+        for q_num in question_elements.keys():
+            name = question_elements[q_num]['name']
+            level = question_elements[q_num]['level']
             q = Question(q_num, name, level)
             self.question_nodes[q_num] = q
             if q_num == curr_log_num:
