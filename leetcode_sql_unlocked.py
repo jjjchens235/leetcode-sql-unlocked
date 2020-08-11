@@ -1,5 +1,5 @@
 from help_menu import HelpMenu
-from questions import QuestionList
+from questions import QuestionDirectory
 from driver import Driver
 from web_handler import WebHandler
 from log import HistLog
@@ -7,6 +7,8 @@ import os
 import re
 import time
 from datetime import datetime
+from selenium.common.exceptions import NoSuchWindowException, WebDriverException
+import logging
 
 def temp_get_questions():
     import ast
@@ -31,26 +33,9 @@ def clean_user_input(user_input):
     sub = re.sub(pattern, '', user_input)
     return ' '.join(sub.split()).lower()
 
-def is_question_changed(curr_number, question):
-    #TODO
-    '''
-    not used for now
-    maybe delete it
-    '''
-    return curr_number != question_number
-
-def output_question_state():
-    #TODO
-    '''
-    not used for now
-    maybe delete it
-    '''
-    pass
-
 def is_stale_file(file_path, days_till_stale=13):
     mtime = os.path.getmtime(file_path) 
     return (datetime.now() - datetime.fromtimestamp(mtime)).days > days_till_stale
-        
 
 def print_options(s, n_sleep=1):
     print('\n')
@@ -58,14 +43,26 @@ def print_options(s, n_sleep=1):
     print('\n')
     time.sleep(n_sleep)
 
-def next_option(user_input, question_list):
+def close_question(q_num, web_handler, hist_log):
+    end_url = web_handler.close_question()
+    if end_url is not None:
+        hist_log.update_q_state(q_num, end_url)
+
+def open_question(q_num, web_handler, hist_log):
+    try:
+        prev_save_url = hist_log.q_state['url'][q_num]
+    except KeyError:
+        prev_save_url = None
+    start_url = web_handler.open_question(q_num, prev_save_url)
+    hist_log.update_q_state(q_num, start_url)
+
+def next_option(user_input, question_dir, hist_log, web_handler):
     if user_input in ['ne', 'nm', 'nh']:
         user_input = ' '.join(user_input)
     user_inputs = user_input.split()
     if user_inputs[0] in ('n', 'next'):
         if len(user_inputs) == 1:
             print_options("You chose next question")
-            question_list.select_next_question()
         elif len(user_inputs) == 2:
             #by level
             user_level = user_inputs[1]
@@ -78,15 +75,20 @@ def next_option(user_input, question_list):
                 level = 'hard'
             else:
                 print_options("Invalid next command!! Do you want to go to next question? Either use 'n' or try by level i.e. 'n e' for next easy, 'n m', 'n h'")
-            if level:
-                print_options("You chose next {level} question".format(level=level))
-                question_list.select_next_question(level)
+                return
+            print_options("You chose next {level} question".format(level=level))
         else:
             print_options("Invalid input!! Too many arguments for next command. Either use 'n' or try by level i.e. 'n e' for next easy, 'n m', 'n h'")
+            return
+
+        close_question(question_dir.get_current_num(), web_handler, hist_log)
+        question_dir.select_next_question()
+        open_question(question_dir.get_current_num(), web_handler, hist_log)
+    #command starts with 'n', but not start with 'n' or 'next'
     else:
         print_options("Invalid input!! Do you want to go to next question? Either use 'n' or try by level i.e. 'n e' for next easy, 'n m', 'n h'")
 
-def question_by_number_option(user_input, question_list, hist_log, web_handler):
+def question_by_number_option(user_input, question_dir, hist_log, web_handler):
     '''
     Checks that the user input is a string that starts with q and ends with a number
     If the input is valid, change question to number inputted
@@ -96,17 +98,11 @@ def question_by_number_option(user_input, question_list, hist_log, web_handler):
     if len(matches) > 0:
         pattern = re.compile(r'\d+')
         q_num = int(pattern.findall(matches[0])[0])
-        try:
-            question_list.select_question_by_number(q_num)
-            print('made it here')
-            try:
-                prev_save_url = hist_log.q_state['url'][q_num]
-            except KeyError:
-                prev_save_url = None
-            new_save_url = web_handler.open_question(q_num, prev_save_url)
-            print('save_url leetcode_unlocked.py :' + new_save_url)
-            hist_log.update_q_state(q_num, new_save_url)
-        except KeyError:
+        if question_dir.is_q_exist(q_num):
+            close_question(question_dir.get_current_num(), web_handler, hist_log)
+            question_dir.select_question_by_number(q_num)
+            open_question(question_dir.get_current_num(), web_handler, hist_log)
+        else:
             print_options("Question number inputted is not on question list. Please enter valid question number, press 'd' to see list of questions",1.5)
     else:
         print_options("Invalid input. If you want to select by question number input 'q NUMBER'. Else if you want to quit, press 'e' to exit")
@@ -130,48 +126,61 @@ def parse_display_args(user_input):
         num_to_display_arg = int(nums_to_display[0])
     return level_arg, num_to_display_arg
     
-def display_questions_option(user_input, question_list):
+def display_questions_option(user_input, question_dir):
     level_arg, num_to_display_arg = parse_display_args(user_input)
     print('\n')
-    question_list.display_questions(level_arg, num_to_display_arg)
+    question_dir.display_questions(level_arg, num_to_display_arg)
 
-def exit_option():
-    print("Exiting program\n")
+def solution_option(web_handler, q_num):
+    web_handler.open_solution_win(q_num)
+
+def exit(web_handler, msg):
+    web_handler.close_all()
+    print(msg + '\n')
     return False
 
-def options(user_input, question_list, hist_log, web_handler):
+def exit_option(q_num, web_handler, hist_log, msg="Exiting program"):
+    '''
+    If the user inputs 'e' into console, we can save the state of the question to the log before closing everything
+    '''
+    close_question(q_num, web_handler, hist_log)
+    return exit(web_handler, msg)
+
+def options(user_input, question_dir, hist_log, web_handler):
 
         valid_start_inputs = ['h', 'n', 'q', 's', 'd', 'e']
-
-        #try:
-        start_input = user_input[0]
+        try:
+            start_input = user_input[0]
+        except:
+            print('Invalid input')
+            return True
         if start_input in valid_start_inputs:
             if start_input == 'h':
                 if user_input in ('h', 'help'):
                     help_menu.print_help()
             elif start_input == 'n':
-                next_option(user_input, question_list)
+                next_option(user_input, question_dir, hist_log, web_handler)
                             
             elif start_input == 'q':
                 if user_input == ('q'):
                     print_options("Invalid input. If you want to select by question number input 'q NUMBER'. Else if you want to quit, press 'e' to exit")
                 elif user_input == ('quit'):
-                    return exit_option()
+                    return exit_option(question_dir.get_current_num(), web_handler, hist_log)
                 else:
-                    question_by_number_option(user_input, question_list, hist_log, web_handler)
+                    question_by_number_option(user_input, question_dir, hist_log, web_handler)
             elif start_input == 's':
-                pass
+                solution_option(web_handler, question_dir.get_current_number())
             elif start_input == 'd':
-                display_questions_option(user_input, question_list)
+                display_questions_option(user_input, question_dir)
             elif start_input == 'e':
                 if user_input in ('e', 'exit'):
-                    return exit_option()
+                    #close_question(question_dir.get_current_num(), web_handler, hist_log)
+                    #web_handler.close_all()
+                    return exit_option(question_dir.get_current_num(), web_handler, hist_log)
                 else:
                     print_options('Invalid input')
         else:
             print_options('Invalid input!')
-        #except:
-        #    pass
         return True
 
 
@@ -188,6 +197,8 @@ if not os.path.exists(DRIVER_DIR):
 if not os.path.exists(LOG_DIR):
     os.mkdir(LOG_DIR)
 
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s:%(message)s', filename=os.path.join(LOG_DIR, ERROR_LOG))
+
 driver_path = os.path.join('drivers','chromedriver') 
 web_handler = WebHandler(Driver.get_driver(driver_path))
 hist_log = HistLog(os.path.join(LOG_DIR, Q_ELEMENTS_LOG), os.path.join(LOG_DIR, Q_STATE_LOG))
@@ -198,11 +209,26 @@ if not os.path.exists(hist_log.q_elements_path) or is_stale_file(hist_log.q_elem
 else:
     q_elements = hist_log.q_elements
 
+q_dir = QuestionDirectory(q_elements, hist_log.q_state['current'])
+help_menu = HelpMenu(q_dir.DEFAULT_NUM_TO_DISPLAY)
+open_question(q_dir.get_current_num(), web_handler, hist_log)
 
-#curr_log_num = 584
-ql = QuestionList(q_elements, hist_log.q_state['current'])
-help_menu = HelpMenu()
 is_continue = True
 while is_continue:
-    user_input = clean_user_input(input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=ql.current.name)))
-    is_continue = options(user_input, ql, hist_log, web_handler)
+    user_input = clean_user_input(input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=q_dir.get_current().name)))
+    try:
+        is_continue = options(user_input, q_dir, hist_log, web_handler)
+    except (IndexError, NoSuchWindowException, WebDriverException) as e:
+        #print(e)
+        msg =  'Browser was closed by user, exiting now'
+        logging.exception(msg)
+        is_continue = exit(web_handler,msg)
+    except NoSuchElementException:
+        msg = 'Web element not found, exiting now'
+        logging.exception(msg)
+        is_continue = exit(web_handler, msg)
+    except:
+        msg =  'Unexpected error, check log, exiting now'
+        logging.exception(msg)
+        is_continue = exit(web_handler, msg)
+

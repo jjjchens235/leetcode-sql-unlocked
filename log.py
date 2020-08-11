@@ -23,7 +23,7 @@ class HistLog:
         # q_state = {'current' : q_num, 'url' : {q_num: url}}
         self.q_state = self.__read_dict(q_state_path)
         if self.q_state is None:
-            self.q_state = {'current':175,'url':{}}
+            self.q_state = {'current':176,'url':{}}
 
     def __read_dict(self, path):
         if os.path.exists(path):

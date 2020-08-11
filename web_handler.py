@@ -1,14 +1,13 @@
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.webdriver import ActionChains
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, NoSuchWindowException
 from datetime import datetime, timedelta
-#import requests
-#from bs4 import BeautifulSoup
 import re
 import time
+
+        #WebDriverWait(self.driver, self.__WEB_DRIVER_WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, 'df')))
+        #WebDriverWait(self.driver, self.__WEB_DRIVER_WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'df')))
 
 class WebHandler():
     __WEB_DRIVER_WAIT_LONG      = 15
@@ -22,7 +21,7 @@ class WebHandler():
 
     def get_question_elements(self):
         url = 'https://leetcode.com/problemset/database/?'
-        self.driver.get(url)
+        win = self.open_new_win(url)
         WebDriverWait(self.driver, self.__WEB_DRIVER_WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
         #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in js
         element = self.driver.find_element_by_class_name('reactable-data')
@@ -35,160 +34,355 @@ class WebHandler():
                 level = line.split()[1].lower()
                 q_name = text[i-2] + ': ' + text[i-1] + ', ' + level
                 question_elements[q_num] = {'level':level, 'name':q_name}
-        driver.close()
+        self.close_window(win)
         return question_elements
 
-    def reset_curr_window(self):
-        self.driver.switch_to_window(self.driver.window_handles[0]) 
-
     def close_window(self, window):
-        if window and len(self.driver.window_handles) > 1:
-            self.driver.switch_to.window(window)
-            self.driver.close()
-            window = None
+        try:
+            if len(self.driver.window_handles) > 1:
+                self.driver.switch_to.window(window)
+                self.driver.close()
+        except:
+            pass
 
-    def close_curr_windows(self):
+    def close_question_windows(self):
         windows =  (self.leet_win, self.db_win, self.solution_win)
         for window in windows:
-            self.close_window(window)
+            if window is not None:
+                self.close_window(window)
+        self.leet_win = self.db_win = self.solution_win = None
 
-    def close_all_windows():
-        #see if this works, I'm calling Driver.py method
-        self.driver.quit()
+    def close_all(self):
+        try:
+            self.driver.quit()
+        #driver already quit
+        except:
+            pass
+
+    def get_last_window(self):
+        return self.driver.window_handles[-1]
+
+    def reset_curr_window(self):
+        try:
+            self.driver.switch_to_window(self.get_last_window()) 
+        except:
+            pass
 
     def open_new_win(self, url):
         '''
-        open a new tab for specified url
+        Open a new tab for specified url
+        Note that driver.current_window_handle attribute is not updated when executing this
         '''
         # need to always reset to an active window before opening new window b/c if opening from an inactive window, a non such window exception is triggered
         self.reset_curr_window()
         url = '\'' + url + '\''
         script = "window.open({url})".format(url=url)
         self.driver.execute_script(script)
+        self.reset_curr_window()
+        return self.get_last_window()
 
     def get_newest_fiddle_url(self, url):
         '''
-        The user may have made changes to the fiddle outside of the program
+        Gets the newest version of the fiddle url
+        Each fiddle url ends with a version #, and increments up each time its saved
+        If the fiddle url redirects to db-fiddle.com that means that url is not valid
+        Note: I tried using requests module to check if url is valid, but even when the url is redirected, the request.is_redirect flag is still False
         '''
         url_index = int(url[-1])
         base_url = url[:-1]
-        #request = requests.get(url)
-        #if request.status_code == 200:
-        #    print('Web site exists')
-        while current_url != 'https://www.db-fiddle.com/':
+        window_handles = []
+
+        while url != 'https://www.db-fiddle.com/':
+            window_handles.append(self.open_new_win(base_url + str(url_index)))
+            time.sleep(3)
+            url = self.driver.current_url
             url_index += 1
-            self.driver.get(base_url + str(url_index))
-            time.sleep(.5)
-            current_url = driver.current_url
-            driver.close()
-        return base_url + str(url_index - 1)
 
-        
+        # window_handles[-1] is always an invalid link that redirects to 'db-fiddle.com'
+        self.db_win = window_handles[-2]
 
-        
+        for window in window_handles:
+            if window != self.db_win:
+                self.close_window(window)
+        return base_url + str(url_index - 2)
+
+    def open_solution_win(self, q_num):
+        q_num = '\'' + str(q_num).zfill(4) + '\''
+        try:
+            url = 'https://github.com/kamyu104/LeetCode-Solutions#sql'
+            self.solution_win = self.open_new_win(url)
+            self.driver.find_element_by_xpath("//*[contains(text(),{q_num})]/following-sibling::td/following-sibling::td".format(q_num=q_num)).click()
+
+            element = self.driver.find_element_by_css_selector('div[itemprop="text"]')
+            self.driver.execute_script("arguments[0].scrollIntoView();", element)
+        except:
+            print('Solution not found')
+
+
     def get_leetcode_url(self, q_num):
-        url = 'https://leetcode.jp/problemdetail.php?id={q_num}'.format(q_num=q_num)
-        return url
+        return 'https://leetcode.jp/problemdetail.php?id={q_num}'.format(q_num=q_num)
 
     def open_leetcode_win(self, q_num):
         '''
         select the leetcode jp problem to go to
         '''
+        self.leet_win = self.open_new_win(self.get_leetcode_url(q_num))
 
-        self.reset_curr_window()
-        leetcode_url = self.get_leetcode_url(q_num)
-        self.open_new_win(leetcode_url)
-        self.leet_win = self.driver.window_handles[-1]
+        
 
     def test_parse_leetcode_tables_selenium():
         # this works out the box in qtconsole only for now     
+        from selenium import webdriver
+        import re
+
         driver = webdriver.Chrome(executable_path='/Users/jwong/Cabinet/Programming/Python/bing-rewards-master/BingRewards/drivers/chromedriver')
 
-        url = 'https://leetcode.jp/problemdetail.php?id=1517'
+        num = 618
+        url = 'https://leetcode.jp/problemdetail.php?id={num}'.format(num=num)
         driver.get(url)
-        elements = driver.find_elements_by_css_selector("pre")
-        driver.find_elements_by_css_selector("pre")
-        for e in elements:
-            print(e.text)
-            print('\n\n')
-
-    def parse_leetcode_tables(self, q_num):
-        self.driver.switch_to_window(self.leet_win)
-        
-        #r = requests.get(self.get_leetcode_url(q_num))
-        #soup = BeautifulSoup(r.text,'html.parser')
-        #tables_pre = soup.find_all('pre')
-
-        elements_pre = self.driver.find_elements_by_css_selector("pre")
+        elements_pre = driver.find_elements_by_css_selector("pre")
         tables_pre = [element.text for element in elements_pre]
         for table_pre in list(tables_pre):
             #remove data type tables
             if 'Column Name' in table_pre:
                 tables_pre.remove(table_pre)
 
-        #get full table data
         table_lines = []
         for table_pre in tables_pre:
             pattern = re.compile('\+--*.*\+|\|.*\|')
             table_lines.append(pattern.findall(table_pre))
 
-        tables_text = []
-        prev_len = None
-        current_table = []
-        plus_line_ct= 0
-        for table_line in table_lines:
-            for line in table_line:
-                curr_len = len(line)
-                if '+-' in line:
-                    plus_line_ct += 1
-                #we reached a new table if the length of the lines are different or...
-                #if '+------' this pattern is repeating
-                if (prev_len and prev_len != curr_len) or (plus_line_ct == 4):
-                    if plus_line_ct == 4:
-                        plus_line_ct = 0
-                    tables_text.append('\n'.join(current_table))
-                    current_table = []
-                prev_len = curr_len
-                current_table.append(line)
-        tables_text.append('\n'.join(current_table))
-            
-        #to get table names
-        #1 This works for newer  questions where it goes X table: then the actual SQL table
-        pattern = re.compile('.+table')
-        table_names = pattern.findall(table_pre)
-        table_names = [table_name.replace('table','').strip() for table_name in table_names]
+        #seperate full table data into individual tables
+        tables_text, current_table = [], []
+        #seperate table type 1, common table style
+        if '+' in table_lines[0][0]:
+            #seperate table 1
+            plus_ct = 0
+            line_i = 0
+            is_single_col = False
+            for table_line in table_lines:
+                for line in table_line:
+                    if line.count('+') == 2:
+                        is_single_col = True
+                    if '+-' in line:
+                        plus_ct += 1
 
-        if 'Result' not in table_names and 'result' not in table_names:
-            table_names.append('Result')
+                    if is_single_col:
+                        line = add_col_table1(line_i, line, plus_ct == 3)
+                    current_table.append(line)
+                    line_i += 1
+                    if plus_ct == 3:
+                        tables_text.append('\n'.join(current_table))
+                        current_table = []
+                        plus_ct = 0
+                        is_single_col = False
+                        line_i = 0
 
-        #2 This method gets tables using <code> tag
-        if len(table_names) != len(tables_text):
-            element_names = self.driver.find_elements_by_css_selector("code")
-            pattern = re.compile(r'[a-zA-Z]+')
-            table_names = []
-            for element_name in element_names:
-                #name = element_name.text.find_all(text=True)[0]
-                if pattern.match(element_name.text):
-                    table_names.append(element_name.text)
-            if 'Result' not in table_names and 'result' not in table_names:
-                table_names.append('Result')
+        #seperate table type 2, rare style
+        else:
+            for table_line in table_lines:
+                is_single_col = False
+                if table_line[0].count('|') == 2:
+                    is_single_col = True
+                for i, line in enumerate(table_line):
+                    if is_single_col:
+                        line = add_col_table2(i, line)
+                    current_table.append(line)
+                tables_text.append('\n'.join(current_table))
+                current_table = []
 
 
-        return table_names, tables_text
 
-    def get_prev_db_url(self, q_num):
-        #TODO
-        # if log shows q_num already has an url, then just open that url
-            #actually, you need to check for a more recent url that the user updated to. Might also need to update log accoridingly
-        #else return None
-        return None
+    class TableParser:
+
+        def parse_table_pre(self, driver):
+            elements_pre = driver.find_elements_by_css_selector("pre")
+            tables_pre = [element.text for element in elements_pre]
+
+            for table_pre in list(tables_pre):
+                #remove data type tables
+                if 'Column Name' in table_pre:
+                    tables_pre.remove(table_pre)
+            return tables_pre
+
+        def parse_table_lines(self, tables_pre):
+            '''
+            tables_pre will contain some extra non-table lines
+            This will remove any line that is not part of a table.
+            The returned list will still need to be cleaned because the tables aren't seperated out
+            '''
+            table_lines = []
+            for table_pre in tables_pre:
+                pattern = re.compile('\+--*.*\+|\|.*\|')
+                table_lines.append(pattern.findall(table_pre))
+            return table_lines
+
+        def is_table1(self, table_lines):
+            return '+' in table_lines[0][0]
+
+        def add_filler_col1(self, index, line, is_final=False):
+            '''
+            DB-fiddle does not support text to DDL for tables with 1 column. This adds a filler column for type 1 tables
+            '''
+            if index == 0:
+                concat = '---------+'
+            elif index == 1:
+                concat = ' ignore  |'
+            elif index == 2:
+                concat = '---------+'
+            elif is_final:
+                concat = '---------+'
+            else:
+                concat = '  _      |'
+            return line + concat
+
+        def add_filler_col2(self, index, line):
+            '''
+            DB-fiddle does not support text to DDL for tables with 1 column. This adds a filler column for type 2 tables
+            '''
+            if index == 0:
+                concat = ' ignore|'
+            elif index == 1:
+                concat = '-------|'
+            else:
+                concat = '   _   |'
+            return line + concat
         
+        def replace_invalid_char_header(self, line):
+            '''
+            for each non-valid char match, returns a space 
+            The inner function adds a space for every match, rather than just one space for all matches
+            '''
+            pattern = re.compile(r'[^_A-Za-z\s\|\+\-]+')
+            def repl(m):
+                return ' ' * len(m.group())
+            sub = re.sub(pattern, repl, line)
+            return sub
+
+        def seperate_tables1(self, table_lines):
+            '''
+            Seperate each table of table type 1 (they contain '+' in the text) into its own item in tables_text list
+            '''
+            tables_text, current_table = [], []
+            plus_ct = line_i = 0
+            is_single_col = False
+            for table_line in table_lines:
+                for line in table_line:
+                    #if header line
+                    if line_i == 1:
+                        line = self.replace_invalid_char_header(line)
+                    if line.count('+') == 2:
+                        is_single_col = True
+                    if '+-' in line:
+                        plus_ct += 1
+
+                    if is_single_col:
+                        line = self.add_filler_col1(line_i, line, plus_ct == 3)
+                    current_table.append(line)
+                    line_i += 1
+                    if plus_ct == 3:
+                        tables_text.append('\n'.join(current_table))
+                        current_table = []
+                        is_single_col = False
+                        plus_ct = line_i = 0
+            return tables_text
+
+        def seperate_tables2(self, table_lines):
+            '''
+            Seperate each table of table type 2 (they contain '|' in the first line) into its own item in tables_text list
+            '''
+            tables_text, current_table = [], []
+            for table_line in table_lines:
+                is_single_col = False
+                if table_line[0].count('|') == 2:
+                    is_single_col = True
+                for line_i, line in enumerate(table_line):
+                    if line_i == 0:
+                        line = self.replace_invalid_char_header(line)
+                    if is_single_col:
+                        line = self.add_filler_col2(line_i, line)
+                    current_table.append(line)
+                tables_text.append('\n'.join(current_table))
+                current_table = []
+            return tables_text
+
+        def add_result_tbl_name(self, names):
+            if 'Result' not in names and 'result' not in names:
+                names.append('Result')
+            return names
+
+        def get_names_final(self, names1, names2, target_len):
+            diff1 = abs(target_len - len(names1))
+            diff2 = abs(target_len - len(names2))
+            min_diff = min(diff1, diff2)
+            if min_diff == diff1:
+                names_final = names1
+            else:   
+                names_final = names2
+
+            if min_diff == 0:
+                return names_final
+            elif len(names_final) > target_len:
+                print('CAUTION: Too many names parsed compared to # of tables')
+                while len(names_final) != target_len:
+                    names_final.pop()
+            else:
+                i = 0
+                print('CAUTION: Too few names parsed compared to # of tables')
+                while len(names_final) != target_len:
+                    names_final.append('Unknown{i}'.format(i=i))
+                    i+=1
+            return names_final
+
+        def parse_table_names(self, driver, tables_pre, target_len):
+            #1 This method gets tables using regex looking for keyword 'table'
+            pattern = re.compile('.+table')
+            names1 = pattern.findall(''.join(tables_pre))
+            names1 = [table_name.replace('table','').strip() for table_name in names1]
+            names1 = self.add_result_tbl_name(names1)
+            if len(names1) == target_len:
+                return names1
+
+            #2 This method gets tables using <code> tag
+            elements = driver.find_elements_by_css_selector("code")
+            element_names = set([element.text for element in elements])
+            pattern = re.compile(r'[a-zA-Z]+')
+            invalid_names = ['null']
+            names2 = []
+            for name in element_names:
+                #name = element_name.text.find_all(text=True)[0]
+                if pattern.match(name) and name not in invalid_names:
+                    names2.append(name)
+            names2 = self.add_result_tbl_name(names2)
+            if len(names2) == target_len:
+                return names2
+
+            return self.get_names_final(names1, names2, target_len)
+
+        def parse_leetcode_tables(self, driver, leet_win):
+            driver.switch_to_window(leet_win)
+            tables_pre = self.parse_table_pre(driver)
+            table_lines = self.parse_table_lines(tables_pre)
+
+            #seperate tables based on type
+            if self.is_table1(table_lines):
+                tables_text = self.seperate_tables1(table_lines)
+            else:
+                tables_text = self.seperate_tables2(table_lines)
+                
+            table_names = self.parse_table_names(driver, tables_pre, len(tables_text))
+            return table_names, tables_text
 
     def open_db_win(self, url='https://www.db-fiddle.com/'):
-        self.open_new_win(url)
-        self.db_win = self.driver.window_handles[-1]
+        self.db_win = self.open_new_win(url)
 
-
+    def db_fiddle_select_engine(self):
+        OPTION_MYSQL8 = 0
+        OPTION_POSTGRES12 = 5
+        #actual
+        self.driver.switch_to_window(self.db_win)
+        self.driver.find_element_by_class_name('ember-power-select-status-icon').click()
+        self.driver.find_elements_by_class_name('ember-power-select-option')[OPTION_MYSQL8].click()
 
     def db_fiddle_query_input(self, table_name):
         #Code Mirror lines element must be activated, before textbox element can be sent keys
@@ -221,38 +415,72 @@ class WebHandler():
         WebDriverWait(self.driver, self.__WEB_DRIVER_WAIT_LONG).until_not(EC.url_to_be(pre_url))
         return self.driver.current_url
 
-    def open_question(self, q_num, prev_fiddle_url=None):
-        self.close_curr_windows()
+    def close_question(self, to_resave_before_close=False):
+        if len(self.driver.window_handles) == 0:
+            raise NoSuchWindowException
+        end_url = None
+        try:
+            self.driver.switch_to_window(self.db_win)
+            if to_resave_before_close:
+                end_url = self.db_fiddle_save()
+            else:
+                end_url = self.driver.current_url
+        except:
+            pass
+        self.close_question_windows()
+        return end_url
+
+    def open_question(self, q_num, prev_url=None):
         #should open leetcode window
         self.open_leetcode_win(q_num)
-        #prev_url = self.get_prev_db_url(q_num)
-        #If a db-fiddle has already been created for this problem, must check to see if the db-fiddle was updated outside of the program
-        if prev_fiddle_url:
-            save_url = self.get_newest_fiddle_url(prev_fiddle_url)
-            self.open_db_win(save_url)
+        if prev_url is not None:
+            start_url = self.get_newest_fiddle_url(prev_url)
+
+            #start_url = prev_url
+            #self.open_db_win(start_url)
 
         #no db-fiddle has been created, create one
         else:
             self.open_db_win()
+            self.db_fiddle_select_engine()
             #parse the tables
-            table_names, tables_text = self.parse_leetcode_tables(q_num)
+            table_names, tables_text = self.TableParser().parse_leetcode_tables(self.driver, self.leet_win)
+            #table_names, tables_text = self.parse_leetcode_tables(q_num)
             #dump tables onto db fiddle
             for i, table_text in enumerate(tables_text):
                 self.db_fiddle_table_input(table_names[i], table_text)
             self.db_fiddle_query_input(table_names[0])
-            save_url = self.db_fiddle_save()
-        print('web driver.py save url: ' + save_url)
-        return save_url
+            start_url = self.db_fiddle_save()
+        self.driver.switch_to_window(self.leet_win)
+        return start_url
 
 
 if __name__ == '__main__':
-    from driver import Driver
+    from selenium import webdriver
     import os
     #q_num = 1517
-    q_num = 618
     driver_path = os.path.join('drivers','chromedriver') 
+    from driver import Driver
     wh = WebHandler(Driver.get_driver(driver_path))
-    wh.open_question(q_num)
+
+    q_num = 613
+    wh.open_leetcode_win(q_num)
+
+    wh.open_db_win()
+    #parse the tables
+    table_names, tables_text = wh.TableParser().parse_leetcode_tables(wh.driver, wh.leet_win)
+
+    for i, table_text in enumerate(tables_text):
+        wh.db_fiddle_table_input(table_names[i], table_text)
+
+
+
+
+    #tables_pre = wh.parse_leetcode_tables(q_num)
+
+    #url = 'https://www.db-fiddle.com/f/oGBBsMS81pMbm3eYDWTm7S/0'
+    #newest = wh.get_newest_fiddle_url(url)
+    #wh.open_question(q_num)
     
 
     ''' get_question testing

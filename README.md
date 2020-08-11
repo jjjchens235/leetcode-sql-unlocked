@@ -22,7 +22,7 @@ The logic in leetcocde_unlocked.py, lets call it main(), is that we create a His
 
 
 
-
+	
 #Issue two - creating and reading in log question status
 
 For q_elements log, we want to refresh from web if the last time we pulled was more than 13 days ago.
@@ -32,4 +32,30 @@ Else we just read in the last log
 For q_state, this is where I'm stuck. HEre are the possiblities:
 1. 
 
-	
+#Issue 3
+
+If the table only has one column, we want to create a second column called 'ignore' filled with _ values
+
+If first line has only two +, or two | then it is 1 column
+if line is column name (not always on second lne), we count how much of that line doesnt match (|)
+
+
+Actually ... forgot all of the above.
+Let's do it like this.
+We test what kind of table it is, there are 2, its first line either starts with 
+Ok let's first assume we know it's either Table Type 1 (+) or Type 2 (|--) and we already have everything parsed into individual tables.
+I think we can just append pre-made column to any table that only has one column
+
+
+#Issue 4
+
+Let's start from here before tackling issue 3. We first want to figure out what kind of table it is after we get table_lines
+Table Type 1: They include + signs
+Table Type 2: Don't include + signs. Instead, their second row is always |----|
+
+For table type 1, we already solved this probelm.
+For Table Typen 2, I think we have to append each line until we either get to a |--- in which case, we pop twice, add popped to temp table first_two, and then taking non-popped elements we create our first table.
+
+
+#Issue 5
+How to choose which 

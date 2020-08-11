@@ -29,7 +29,7 @@ class Question:
         self.next = next
         self.next_same_lvl = next_same_lvl
 
-class QuestionList:
+class QuestionDirectory:
     DEFAULT_NUM_TO_DISPLAY = 15
 
     def __init__(self, question_elements, curr_log_num):
@@ -88,6 +88,10 @@ class QuestionList:
         prev_q_easy.next_same_lvl = head_easy
         prev_q_med.next_same_lvl = head_med
         prev_q_hard.next_same_lvl = head_hard
+
+        #if for some reason, the current question in the log is an invalid question #, reset question to #176
+        if not self.is_q_exist(curr_log_num):
+            curr = head.next
         return curr
 
 
@@ -98,6 +102,12 @@ class QuestionList:
             print('Current Question: ' + str(curr.number) +', Question Name: ' + curr.name + ', Level: ' + curr.level + ', Next Question: ' + str(curr.next.number) + ' , Next Same Level Question: ' + str(curr.next_same_lvl.number) + '\n')
             curr = curr.next
             
+    def get_current(self):
+        return self.current
+
+    def get_current_num(self):
+        return self.current.number
+
     def get_next_node(self, node, level=None):
         if level is None:
             return node.next
@@ -114,6 +124,13 @@ class QuestionList:
         Returns the next question based on current. Can also return next question by level
         '''
         self.current = self.get_next_node(self.current, level)
+
+    def is_q_exist(self, number):
+       try:
+           self.question_nodes[number] 
+       except KeyError:
+            return False
+       return True
 
     def select_question_by_number(self, number):
         self.current = self.question_nodes[number]
@@ -136,7 +153,7 @@ class QuestionList:
         #level_args = {'de':'easy', 'display easy':'easy', 'dm':'medium', 'display medium':'medium', 'dh':'hard', 'display hard':'hard'}
 
         if n is None:
-            n = QuestionList.DEFAULT_NUM_TO_DISPLAY
+            n = QuestionDirectory.DEFAULT_NUM_TO_DISPLAY
         q_names = [node.name for node in self.get_next_n_nodes(n, level)]
         print('\nDisplaying next {n}{level} questions:\n'.format(n=n,level= ' '+ level if level is not None else ''))
         pprint.pprint(q_names)
@@ -169,5 +186,5 @@ if __name__ == '__main__':
 
 
     curr_log_num = 584
-    ql = QuestionList(questions, curr_log_num)
-    ql.display_questions(level='medium', n=200)
+    q_dir = QuestionDirectory(questions, curr_log_num)
+    q_dir.display_questions(level='medium', n=200)
