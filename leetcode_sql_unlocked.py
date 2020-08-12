@@ -7,7 +7,7 @@ import os
 import re
 import time
 from datetime import datetime
-from selenium.common.exceptions import NoSuchWindowException, WebDriverException
+from selenium.common.exceptions import NoSuchWindowException, NoSuchElementException, WebDriverException
 import logging
 
 def temp_get_questions():
@@ -197,7 +197,7 @@ if not os.path.exists(DRIVER_DIR):
 if not os.path.exists(LOG_DIR):
     os.mkdir(LOG_DIR)
 
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s:%(message)s', filename=os.path.join(LOG_DIR, ERROR_LOG))
+logging.basicConfig(level=logging.ERROR, format='%(message)s', filename=os.path.join(LOG_DIR, ERROR_LOG))
 
 driver_path = os.path.join('drivers','chromedriver') 
 web_handler = WebHandler(Driver.get_driver(driver_path))
@@ -220,15 +220,18 @@ while is_continue:
         is_continue = options(user_input, q_dir, hist_log, web_handler)
     except (IndexError, NoSuchWindowException, WebDriverException) as e:
         #print(e)
+        now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
         msg =  'Browser was closed by user, exiting now'
-        logging.exception(msg)
+        logging.exception(now + msg)
         is_continue = exit(web_handler,msg)
     except NoSuchElementException:
+        now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
         msg = 'Web element not found, exiting now'
-        logging.exception(msg)
+        logging.exception(now + msg)
         is_continue = exit(web_handler, msg)
     except:
-        msg =  'Unexpected error, check log, exiting now'
-        logging.exception(msg)
+        now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
+        msg =  'Unknown error, check log, exiting now'
+        logging.exception(now + msg)
         is_continue = exit(web_handler, msg)
 

@@ -1,17 +1,17 @@
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, NoSuchWindowException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, NoSuchWindowException, ElementNotSelectableException, ElementNotVisibleException
 from datetime import datetime, timedelta
 import re
 import time
 
-        #WebDriverWait(self.driver, self.__WEB_DRIVER_WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, 'df')))
-        #WebDriverWait(self.driver, self.__WEB_DRIVER_WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'df')))
+        #WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, 'df')))
+        #WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'df')))
 
 class WebHandler():
-    __WEB_DRIVER_WAIT_LONG      = 15
-    __WEB_DRIVER_WAIT_SHORT     = 5
+    __WAIT_LONG      = 7
+    __WAIT_SHORT     = 2
     
     def __init__(self, driver):
         self.driver = driver
@@ -22,9 +22,10 @@ class WebHandler():
     def get_question_elements(self):
         url = 'https://leetcode.com/problemset/database/?'
         win = self.open_new_win(url)
-        WebDriverWait(self.driver, self.__WEB_DRIVER_WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
+        #view all problems, not just first 50
+        WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
         #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in js
-        element = self.driver.find_element_by_class_name('reactable-data')
+        element = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CLASS_NAME, 'reactable-data')))
         text =  [' '.join(line.split()) for line in element.text.split('\n')]
         question_elements = {}
 
@@ -94,7 +95,7 @@ class WebHandler():
 
         while url != 'https://www.db-fiddle.com/':
             window_handles.append(self.open_new_win(base_url + str(url_index)))
-            time.sleep(3)
+            time.sleep(self.__WAIT_SHORT)
             url = self.driver.current_url
             url_index += 1
 
@@ -111,9 +112,10 @@ class WebHandler():
         try:
             url = 'https://github.com/kamyu104/LeetCode-Solutions#sql'
             self.solution_win = self.open_new_win(url)
-            self.driver.find_element_by_xpath("//*[contains(text(),{q_num})]/following-sibling::td/following-sibling::td".format(q_num=q_num)).click()
-
-            element = self.driver.find_element_by_css_selector('div[itemprop="text"]')
+            #find question from github page
+            WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH,("//*[contains(text(),{q_num})]/following-sibling::td/following-sibling::td".format(q_num=q_num))))).click()
+            #find solution text, and scroll to it
+            element = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[itemprop="text"]')))
             self.driver.execute_script("arguments[0].scrollIntoView();", element)
         except:
             print('Solution not found')
@@ -140,7 +142,9 @@ class WebHandler():
         num = 618
         url = 'https://leetcode.jp/problemdetail.php?id={num}'.format(num=num)
         driver.get(url)
+        #find sql tables
         elements_pre = driver.find_elements_by_css_selector("pre")
+        #elements_pre = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'pre')))
         tables_pre = [element.text for element in elements_pre]
         for table_pre in list(tables_pre):
             #remove data type tables
@@ -194,9 +198,16 @@ class WebHandler():
 
 
     class TableParser:
+        __WAIT_LONG      = 7
+        __WAIT_SHORT     = 2
 
-        def parse_table_pre(self, driver):
-            elements_pre = driver.find_elements_by_css_selector("pre")
+        def __init__(self, driver):
+            self.driver = driver
+
+        def parse_table_pre(self):
+            #find sql text tables using pre element tag
+            elements_pre = self.driver.find_elements_by_css_selector("pre")
+            #elements_pre = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'pre')))
             tables_pre = [element.text for element in elements_pre]
 
             for table_pre in list(tables_pre):
@@ -323,18 +334,18 @@ class WebHandler():
             if min_diff == 0:
                 return names_final
             elif len(names_final) > target_len:
-                print('CAUTION: Too many names parsed compared to # of tables')
+                print('CAUTION: Unknown table nams- too many names parsed compared to # of tables')
                 while len(names_final) != target_len:
                     names_final.pop()
             else:
                 i = 0
-                print('CAUTION: Too few names parsed compared to # of tables')
+                print('CAUTION: Unknown table names- too few names parsed compared to # of tables')
                 while len(names_final) != target_len:
                     names_final.append('Unknown{i}'.format(i=i))
                     i+=1
             return names_final
 
-        def parse_table_names(self, driver, tables_pre, target_len):
+        def parse_table_names(self, tables_pre, target_len):
             #1 This method gets tables using regex looking for keyword 'table'
             pattern = re.compile('.+table')
             names1 = pattern.findall(''.join(tables_pre))
@@ -343,11 +354,12 @@ class WebHandler():
             if len(names1) == target_len:
                 return names1
 
-            #2 This method gets tables using <code> tag
-            elements = driver.find_elements_by_css_selector("code")
+            #2 This method gets table names using <code> tag
+            elements = self.driver.find_elements_by_css_selector("code")
+            #elements = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'code')))
             element_names = set([element.text for element in elements])
             pattern = re.compile(r'[a-zA-Z]+')
-            invalid_names = ['null']
+            invalid_names = ['null', 'DIAB1']
             names2 = []
             for name in element_names:
                 #name = element_name.text.find_all(text=True)[0]
@@ -359,9 +371,9 @@ class WebHandler():
 
             return self.get_names_final(names1, names2, target_len)
 
-        def parse_leetcode_tables(self, driver, leet_win):
-            driver.switch_to_window(leet_win)
-            tables_pre = self.parse_table_pre(driver)
+        def parse_leetcode_tables(self, leet_win):
+            self.driver.switch_to_window(leet_win)
+            tables_pre = self.parse_table_pre()
             table_lines = self.parse_table_lines(tables_pre)
 
             #seperate tables based on type
@@ -370,7 +382,7 @@ class WebHandler():
             else:
                 tables_text = self.seperate_tables2(table_lines)
                 
-            table_names = self.parse_table_names(driver, tables_pre, len(tables_text))
+            table_names = self.parse_table_names(tables_pre, len(tables_text))
             return table_names, tables_text
 
     def open_db_win(self, url='https://www.db-fiddle.com/'):
@@ -381,15 +393,16 @@ class WebHandler():
         OPTION_POSTGRES12 = 5
         #actual
         self.driver.switch_to_window(self.db_win)
-        self.driver.find_element_by_class_name('ember-power-select-status-icon').click()
+        WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'ember-power-select-status-icon'))).click()
         self.driver.find_elements_by_class_name('ember-power-select-option')[OPTION_MYSQL8].click()
+        #WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'ember-power-select-option'))).click()
 
     def db_fiddle_query_input(self, table_name):
         #Code Mirror lines element must be activated, before textbox element can be sent keys
         self.driver.switch_to_window(self.db_win)
-        code_mirror = self.driver.find_element_by_xpath( '//*[@id="query"]/div[2]/div[6]/div[1]/div/div/div')
+        code_mirror = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="query"]/div[2]/div[6]/div[1]/div/div/div')))
         code_mirror.click()
-        textbox = self.driver.find_element_by_xpath('//*[@id="query"]/div[2]/div[1]/textarea')
+        textbox = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.XPATH, '//*[@id="query"]/div[2]/div[1]/textarea')))
         query = 'SELECT * FROM {table_name}'.format(table_name=table_name)
         textbox.send_keys(query)
 
@@ -397,22 +410,25 @@ class WebHandler():
         #text to DDL
         #table_text = '+--------------------+---------+\n| product_name       | unit    |\n+--------------------+---------+\n| Leetcode Solutions | 130     |\n| Leetcode Kit       | 100     |\n+--------------------+---------+'
         self.driver.switch_to_window(self.db_win)
-        self.driver.find_element_by_xpath('//*[@id="schema"]/div[3]/button[1]').click()
-        table_name_input = self.driver.find_element_by_xpath("//div[@id='textToDDLModal']//*[starts-with(@class,'modal-body')]//*[starts-with(@id,'ember')]/input")
+        fluent_wait = WebDriverWait(self.driver, self.__WAIT_SHORT, poll_frequency=.5, ignored_exceptions=[ElementNotVisibleException, ElementNotSelectableException])
+        fluent_wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="schema"]/div[3]/button[1]'))).click()
+        table_name_input = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.XPATH, "//div[@id='textToDDLModal']//*[starts-with(@class,'modal-body')]//*[starts-with(@id,'ember')]/input")))
         table_name_input.send_keys(table_name)
-        table_input = self.driver.find_element_by_xpath("//div[@id='textToDDLModal']//*[starts-with(@class,'modal-body')]//*[starts-with(@id,'ember')]/textarea")
+
+        table_input = fluent_wait.until(EC.presence_of_element_located((By.XPATH, "//div[@id='textToDDLModal']//*[starts-with(@class,'modal-body')]//*[starts-with(@id,'ember')]/textarea")))
         table_input.send_keys(table_text)
-        append_button = self.driver.find_element_by_xpath("//div[@id='textToDDLModal']//*[starts-with(@class,'modal-body')]/button[2]")
+        append_button = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, "//div[@id='textToDDLModal']//*[starts-with(@class,'modal-body')]/button[2]")))
         append_button.click()
 
     def db_fiddle_save(self):
         self.driver.switch_to_window(self.db_win)
         pre_url = self.driver.current_url
         try:
-            self.driver.find_element_by_xpath('//*[@id="saveButton"]').click()
+            WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="saveButton"]'))).click()
         except:
-            self.driver.find_element_by_xpath('//*[@id="runButton"]').click()
-        WebDriverWait(self.driver, self.__WEB_DRIVER_WAIT_LONG).until_not(EC.url_to_be(pre_url))
+            WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="runButton"]'))).click()
+        #after saving, wait until url has changed to return the saved url
+        WebDriverWait(self.driver, self.__WAIT_LONG).until_not(EC.url_to_be(pre_url))
         return self.driver.current_url
 
     def close_question(self, to_resave_before_close=False):
@@ -444,7 +460,7 @@ class WebHandler():
             self.open_db_win()
             self.db_fiddle_select_engine()
             #parse the tables
-            table_names, tables_text = self.TableParser().parse_leetcode_tables(self.driver, self.leet_win)
+            table_names, tables_text = self.TableParser(self.driver).parse_leetcode_tables(self.leet_win)
             #table_names, tables_text = self.parse_leetcode_tables(q_num)
             #dump tables onto db fiddle
             for i, table_text in enumerate(tables_text):
@@ -468,7 +484,6 @@ if __name__ == '__main__':
 
     wh.open_db_win()
     #parse the tables
-    table_names, tables_text = wh.TableParser().parse_leetcode_tables(wh.driver, wh.leet_win)
 
     for i, table_text in enumerate(tables_text):
         wh.db_fiddle_table_input(table_names[i], table_text)
@@ -476,7 +491,6 @@ if __name__ == '__main__':
 
 
 
-    #tables_pre = wh.parse_leetcode_tables(q_num)
 
     #url = 'https://www.db-fiddle.com/f/oGBBsMS81pMbm3eYDWTm7S/0'
     #newest = wh.get_newest_fiddle_url(url)
