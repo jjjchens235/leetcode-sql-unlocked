@@ -6,9 +6,6 @@ from datetime import datetime, timedelta
 import re
 import time
 
-        #WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, 'df')))
-        #WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'df')))
-
 class WebHandler():
     __WAIT_LONG      = 7
     __WAIT_SHORT     = 2
@@ -23,20 +20,24 @@ class WebHandler():
         url = 'https://leetcode.com/problemset/database/?'
         win = self.open_new_win(url)
         #view all problems, not just first 50
-        WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
-        #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in js
-        element = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CLASS_NAME, 'reactable-data')))
-        text =  [' '.join(line.split()) for line in element.text.split('\n')]
-        question_elements = {}
+        try:
+            WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
+            #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in js
+            element = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CLASS_NAME, 'reactable-data')))
 
-        for i, line in enumerate(text):
-            if (i+1) % 3 == 0:
-                q_num = int(text[i-2])
-                level = line.split()[1].lower()
-                q_name = text[i-2] + ': ' + text[i-1] + ', ' + level
-                question_elements[q_num] = {'level':level, 'name':q_name}
-        self.close_window(win)
-        return question_elements
+            text =  [' '.join(line.split()) for line in element.text.split('\n')]
+            question_elements = {}
+
+            for i, line in enumerate(text):
+                if (i+1) % 3 == 0:
+                    q_num = int(text[i-2])
+                    level = line.split()[1].lower()
+                    q_name = text[i-2] + ': ' + text[i-1] + ', ' + level
+                    question_elements[q_num] = {'level':level, 'name':q_name}
+            self.close_window(win)
+            return question_elements
+        except:
+            print('\n Could not find elements for SQL list from leetcode.com')
 
     def close_window(self, window):
         try:
@@ -58,7 +59,7 @@ class WebHandler():
             self.driver.quit()
         #driver already quit
         except:
-            pass
+            print('\nCannot close driver, driver has already closed')
 
     def get_last_window(self):
         return self.driver.window_handles[-1]
@@ -82,11 +83,19 @@ class WebHandler():
         self.reset_curr_window()
         return self.get_last_window()
 
+    def is_valid_prev_url(self, url):
+        '''
+        Check if url is a saved db-fiddle. It needs to start with https://db-fiddle, and end with a /0-9
+        '''
+        if re.search(r'^https://www\.db-fiddle.*\/[0-9]+$', url) is not None:
+            return True
+        return False
+
     def get_newest_fiddle_url(self, url):
         '''
         Gets the newest version of the fiddle url
         Each fiddle url ends with a version #, and increments up each time its saved
-        If the fiddle url redirects to db-fiddle.com that means that url is not valid
+        If the fiddle url redirects to db-fiddle.com that means that we went too far
         Note: I tried using requests module to check if url is valid, but even when the url is redirected, the request.is_redirect flag is still False
         '''
         url_index = int(url[-1])
@@ -118,7 +127,7 @@ class WebHandler():
             element = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[itemprop="text"]')))
             self.driver.execute_script("arguments[0].scrollIntoView();", element)
         except:
-            print('Solution not found')
+            print('\nSolution not found')
 
 
     def get_leetcode_url(self, q_num):
@@ -129,8 +138,6 @@ class WebHandler():
         select the leetcode jp problem to go to
         '''
         self.leet_win = self.open_new_win(self.get_leetcode_url(q_num))
-
-        
 
     def test_parse_leetcode_tables_selenium():
         # this works out the box in qtconsole only for now     
@@ -356,13 +363,11 @@ class WebHandler():
 
             #2 This method gets table names using <code> tag
             elements = self.driver.find_elements_by_css_selector("code")
-            #elements = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'code')))
             element_names = set([element.text for element in elements])
             pattern = re.compile(r'[a-zA-Z]+')
             invalid_names = ['null', 'DIAB1']
             names2 = []
             for name in element_names:
-                #name = element_name.text.find_all(text=True)[0]
                 if pattern.match(name) and name not in invalid_names:
                     names2.append(name)
             names2 = self.add_result_tbl_name(names2)
@@ -449,7 +454,7 @@ class WebHandler():
     def open_question(self, q_num, prev_url=None):
         #should open leetcode window
         self.open_leetcode_win(q_num)
-        if prev_url is not None:
+        if prev_url is not None and self.is_valid_prev_url(prev_url):
             start_url = self.get_newest_fiddle_url(prev_url)
 
             #start_url = prev_url
@@ -459,10 +464,13 @@ class WebHandler():
         else:
             self.open_db_win()
             self.db_fiddle_select_engine()
-            #parse the tables
-            table_names, tables_text = self.TableParser(self.driver).parse_leetcode_tables(self.leet_win)
-            #table_names, tables_text = self.parse_leetcode_tables(q_num)
-            #dump tables onto db fiddle
+            try:
+                #parse the sql tables from leetcode.jp
+                table_names, tables_text = self.TableParser(self.driver).parse_leetcode_tables(self.leet_win)
+            #couldn't find sql tables to parse
+            except (NoSuchElementException, IndexError) as e:
+                return None
+            #dump parsed tables onto db fiddle
             for i, table_text in enumerate(tables_text):
                 self.db_fiddle_table_input(table_names[i], table_text)
             self.db_fiddle_query_input(table_names[0])

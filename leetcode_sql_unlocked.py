@@ -44,8 +44,13 @@ def print_options(s, n_sleep=1):
     time.sleep(n_sleep)
 
 def close_question(q_num, web_handler, hist_log):
+    try:
+        start_url = hist_log['url'][q_num]
+    #was not able to create a valid url for this question in open_question()
+    except:
+        start_url = None
     end_url = web_handler.close_question()
-    if end_url is not None:
+    if start_url is not None and end_url not in [None, 'https://www.db-fiddle.com/']:
         hist_log.update_q_state(q_num, end_url)
 
 def open_question(q_num, web_handler, hist_log):
@@ -54,7 +59,10 @@ def open_question(q_num, web_handler, hist_log):
     except KeyError:
         prev_save_url = None
     start_url = web_handler.open_question(q_num, prev_save_url)
-    hist_log.update_q_state(q_num, start_url)
+    if start_url is not None:
+        hist_log.update_q_state(q_num, start_url)
+    else:
+        print('\n\nCAUTION: For question {}, not able to parse tables from leetcode.jp'.format(q_num))
 
 def next_option(user_input, question_dir, hist_log, web_handler):
     if user_input in ['ne', 'nm', 'nh']:
@@ -218,7 +226,7 @@ while is_continue:
     user_input = clean_user_input(input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=q_dir.get_current().name)))
     try:
         is_continue = options(user_input, q_dir, hist_log, web_handler)
-    except (IndexError, NoSuchWindowException, WebDriverException) as e:
+    except (NoSuchWindowException, WebDriverException) as e:
         #print(e)
         now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
         msg =  'Browser was closed by user, exiting now'
@@ -231,7 +239,7 @@ while is_continue:
         is_continue = exit(web_handler, msg)
     except:
         now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
-        msg =  'Unknown error, check log, exiting now'
+        msg =  'Uncaught exc, check log, exiting now'
         logging.exception(now + msg)
         is_continue = exit(web_handler, msg)
 

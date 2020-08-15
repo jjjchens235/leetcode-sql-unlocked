@@ -58,4 +58,10 @@ For Table Typen 2, I think we have to append each line until we either get to a 
 
 
 #Issue 5
-How to choose which 
+what happens if it's a new valid question, but it hasn't been uploaded to JP yet. In faxt let's expand this question a little more broadly, let's say there's a question that is valid that makes us error out, let's say we can't scrape it correctly.
+
+How do we allow the user to try a new problem
+
+We can solve it on the level of the method within web_handler.py, or within leetcode's main()
+
+if solving at the level of web_handler methods, we would bewould need to find the methods where it would be ok to error out on.
