@@ -56,7 +56,6 @@ class HistLog:
 
 
 
-
     #----------    potentially deprec ------------------------
     def __read_deprec(self, path):
         if not os.path.exists(path):

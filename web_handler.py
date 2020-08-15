@@ -21,6 +21,7 @@ class WebHandler():
         win = self.open_new_win(url)
         #view all problems, not just first 50
         try:
+            print('\nDownloading leetcode question elements')
             WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
             #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in js
             element = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CLASS_NAME, 'reactable-data')))
@@ -399,8 +400,11 @@ class WebHandler():
         #actual
         self.driver.switch_to_window(self.db_win)
         WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'ember-power-select-status-icon'))).click()
-        self.driver.find_elements_by_class_name('ember-power-select-option')[OPTION_MYSQL8].click()
-        #WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'ember-power-select-option'))).click()
+        try:
+            self.driver.find_elements_by_class_name('ember-power-select-option')[OPTION_MYSQL8].click()
+        except IndexError:
+            print('\nInvalid sql engine selection, changing to mySQL8')
+            self.driver.find_elements_by_class_name('ember-power-select-option')[0].click()
 
     def db_fiddle_query_input(self, table_name):
         #Code Mirror lines element must be activated, before textbox element can be sent keys

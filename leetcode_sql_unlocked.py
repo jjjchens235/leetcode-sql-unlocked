@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 from selenium.common.exceptions import NoSuchWindowException, NoSuchElementException, WebDriverException
 import logging
+import traceback
 
 def temp_get_questions():
     import ast
@@ -222,24 +223,24 @@ help_menu = HelpMenu(q_dir.DEFAULT_NUM_TO_DISPLAY)
 open_question(q_dir.get_current_num(), web_handler, hist_log)
 
 is_continue = True
+tb = None
 while is_continue:
     user_input = clean_user_input(input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=q_dir.get_current().name)))
     try:
         is_continue = options(user_input, q_dir, hist_log, web_handler)
-    except (NoSuchWindowException, WebDriverException) as e:
-        #print(e)
-        now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
+    except (NoSuchWindowException, WebDriverException):
+        tb = traceback.format_exc()
         msg =  'Browser was closed by user, exiting now'
-        logging.exception(now + msg)
-        is_continue = exit(web_handler,msg)
     except NoSuchElementException:
-        now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
+        tb = traceback.format_exc()
         msg = 'Web element not found, exiting now'
-        logging.exception(now + msg)
-        is_continue = exit(web_handler, msg)
     except:
-        now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
+        tb = traceback.format_exc()
         msg =  'Uncaught exc, check log, exiting now'
-        logging.exception(now + msg)
-        is_continue = exit(web_handler, msg)
+    finally:
+        if tb:
+            now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
+            logging.exception(now + msg + '\n' + tb)
+            is_continue = exit(web_handler, msg)
+
 
