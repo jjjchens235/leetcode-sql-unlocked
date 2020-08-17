@@ -88,7 +88,7 @@ class WebHandler():
         '''
         Check if url is a saved db-fiddle. It needs to start with https://db-fiddle, and end with a /0-9
         '''
-        if re.search(r'^https://www\.db-fiddle.*\/[0-9]+$', url) is not None:
+        if re.search(r'^https://www\.db-fiddle.*/\d+$', url) is not None:
             return True
         return False
 
@@ -215,7 +215,6 @@ class WebHandler():
         def parse_table_pre(self):
             #find sql text tables using pre element tag
             elements_pre = self.driver.find_elements_by_css_selector("pre")
-            #elements_pre = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'pre')))
             tables_pre = [element.text for element in elements_pre]
 
             for table_pre in list(tables_pre):
@@ -272,6 +271,7 @@ class WebHandler():
             for each non-valid char match, returns a space 
             The inner function adds a space for every match, rather than just one space for all matches
             '''
+            #valid characters for tables names | valid characters for tables
             pattern = re.compile(r'[^_A-Za-z\s\|\+\-]+')
             def repl(m):
                 return ' ' * len(m.group())
@@ -330,14 +330,16 @@ class WebHandler():
                 names.append('Result')
             return names
 
-        def get_names_final(self, names1, names2, target_len):
-            diff1 = abs(target_len - len(names1))
-            diff2 = abs(target_len - len(names2))
-            min_diff = min(diff1, diff2)
-            if min_diff == diff1:
-                names_final = names1
-            else:   
-                names_final = names2
+        def get_closest_names(self,  target_len, names_args):
+            '''
+            Returns the names list that has a length closest to the number of tables parsed
+            '''
+            min_diff = float('inf')
+            for names in names_args:
+                diff = abs(target_len - len(names))
+                if diff < min_diff:
+                    min_diff = diff
+                    names_final = names
 
             if min_diff == 0:
                 return names_final
@@ -356,26 +358,40 @@ class WebHandler():
         def parse_table_names(self, tables_pre, target_len):
             #1 This method gets tables using regex looking for keyword 'table'
             pattern = re.compile('.+table')
-            names1 = pattern.findall(''.join(tables_pre))
-            names1 = [table_name.replace('table','').strip() for table_name in names1]
-            names1 = self.add_result_tbl_name(names1)
-            if len(names1) == target_len:
-                return names1
+            names_kword = pattern.findall(''.join(tables_pre))
+            names_kword = [table_name.replace('table','').strip() for table_name in names_kword]
+            names_kword = self.add_result_tbl_name(names_kword)
+            if len(names_kword) == target_len:
+                return names_kword
 
-            #2 This method gets table names using <code> tag
+            #method 2, from <pre> tag, collects the first word above each table line
+            table_pre = '\n'.join(tables_pre)
+            try:
+                #capture words before first table
+                name_first = [re.match(r'(.*)\n\+-', table_pre).group(1)]
+                #capture words between 2 new lines, and next table
+                names_remaining = re.findall(r'\n\n(.*?)\n\+-', table_pre)
+                names_positional = name_first + names_remaining
+                names_positional = [name.split()[0] for name in names_positional]
+                if len(names_positional) == target_len:
+                    return names_positional
+            except (AttributeError, IndexError):
+                names_positional = []
+
+            #2 This method gets table names using <code> tag, i.e. #176
             elements = self.driver.find_elements_by_css_selector("code")
             element_names = set([element.text for element in elements])
             pattern = re.compile(r'[a-zA-Z]+')
             invalid_names = ['null', 'DIAB1']
-            names2 = []
+            names_code = []
             for name in element_names:
                 if pattern.match(name) and name not in invalid_names:
-                    names2.append(name)
-            names2 = self.add_result_tbl_name(names2)
-            if len(names2) == target_len:
-                return names2
+                    names_code.append(name)
+            names_code = self.add_result_tbl_name(names_code)
+            if len(names_code) == target_len:
+                return names_code
 
-            return self.get_names_final(names1, names2, target_len)
+            return self.get_closest_names(target_len, [names_kword, names_positional, names_code])
 
         def parse_leetcode_tables(self, leet_win):
             self.driver.switch_to_window(leet_win)

@@ -102,11 +102,9 @@ def question_by_number_option(user_input, question_dir, hist_log, web_handler):
     Checks that the user input is a string that starts with q and ends with a number
     If the input is valid, change question to number inputted
     '''
-    pattern = re.compile(r'q[a-z\s]*\d+')
-    matches = pattern.findall(user_input)
-    if len(matches) > 0:
-        pattern = re.compile(r'\d+')
-        q_num = int(pattern.findall(matches[0])[0])
+    matches = re.match(r'[a-z\s]*(\d+)', user_input)
+    if matches:
+        q_num = int(matches.group(1))
         if question_dir.is_q_exist(q_num):
             close_question(question_dir.get_current_num(), web_handler, hist_log)
             question_dir.select_question_by_number(q_num)
@@ -129,10 +127,10 @@ def parse_display_args(user_input):
         level_arg = 'easy'
 
     num_to_display_arg = None
-    pattern = re.compile(r'\d+')
-    nums_to_display = pattern.findall(user_input)
-    if len(nums_to_display) > 0:
-        num_to_display_arg = int(nums_to_display[0])
+    try:
+        num_to_display_arg = int(re.search(r'\d+', user_input).group(0))
+    except AttributeError:
+        pass
     return level_arg, num_to_display_arg
     
 def display_questions_option(user_input, question_dir):
@@ -161,12 +159,13 @@ def options(user_input, question_dir, hist_log, web_handler):
         try:
             start_input = user_input[0]
         except:
-            print('Invalid input')
+            print_options('Invalid input')
             return True
+
         if start_input in valid_start_inputs:
             if start_input == 'h':
-                if user_input in ('h', 'help'):
-                    help_menu.print_help()
+                help_menu.print_help()
+
             elif start_input == 'n':
                 next_option(user_input, question_dir, hist_log, web_handler)
                             
@@ -188,8 +187,12 @@ def options(user_input, question_dir, hist_log, web_handler):
                     return exit_option(question_dir.get_current_num(), web_handler, hist_log)
                 else:
                     print_options('Invalid input')
+        #does not start with valid char
         else:
-            print_options('Invalid input!')
+            if re.match(r'[1-9]\d{2,3}', user_input):
+                question_by_number_option(user_input, question_dir, hist_log, web_handler)
+            else:
+                print_options('Invalid input!')
         return True
 
 
@@ -200,6 +203,7 @@ ERROR_LOG = 'error.log'
 Q_ELEMENTS_LOG = 'q_elements.log'
 Q_STATE_LOG = 'q_state.log'
 
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
 if not os.path.exists(DRIVER_DIR):
     os.mkdir(DRIVER_DIR)
 
@@ -230,7 +234,7 @@ while is_continue:
         is_continue = options(user_input, q_dir, hist_log, web_handler)
     except (NoSuchWindowException, WebDriverException):
         tb = traceback.format_exc()
-        msg =  'Browser was closed by user, exiting now'
+        msg =  'Browser was already closed by user, exiting now'
     except NoSuchElementException:
         tb = traceback.format_exc()
         msg = 'Web element not found, exiting now'
