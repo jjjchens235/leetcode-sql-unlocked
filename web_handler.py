@@ -1,10 +1,11 @@
+import web_options as options
+import re
+import time
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, NoSuchWindowException, ElementNotSelectableException, ElementNotVisibleException
 from datetime import datetime, timedelta
-import re
-import time
 
 class WebHandler():
     __WAIT_LONG      = 7
@@ -84,7 +85,7 @@ class WebHandler():
         self.reset_curr_window()
         return self.get_last_window()
 
-    def is_valid_prev_url(self, url):
+    def is_valid_save_url(self, url):
         '''
         Check if url is a saved db-fiddle. It needs to start with https://db-fiddle, and end with a /0-9
         '''
@@ -92,7 +93,7 @@ class WebHandler():
             return True
         return False
 
-    def get_newest_fiddle_url(self, url):
+    def open_newest_fiddle_url(self, url):
         '''
         Gets the newest version of the fiddle url
         Each fiddle url ends with a version #, and increments up each time its saved
@@ -411,13 +412,10 @@ class WebHandler():
         self.db_win = self.open_new_win(url)
 
     def db_fiddle_select_engine(self):
-        OPTION_MYSQL8 = 0
-        OPTION_POSTGRES12 = 5
-        #actual
         self.driver.switch_to_window(self.db_win)
         WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'ember-power-select-status-icon'))).click()
         try:
-            self.driver.find_elements_by_class_name('ember-power-select-option')[OPTION_MYSQL8].click()
+            self.driver.find_elements_by_class_name('ember-power-select-option')[options.DB_ENGINE].click()
         except IndexError:
             print('\nInvalid sql engine selection, changing to mySQL8')
             self.driver.find_elements_by_class_name('ember-power-select-option')[0].click()
@@ -456,13 +454,13 @@ class WebHandler():
         WebDriverWait(self.driver, self.__WAIT_LONG).until_not(EC.url_to_be(pre_url))
         return self.driver.current_url
 
-    def close_question(self, to_resave_before_close=False):
+    def close_question(self):
         if len(self.driver.window_handles) == 0:
             raise NoSuchWindowException
         end_url = None
         try:
             self.driver.switch_to_window(self.db_win)
-            if to_resave_before_close:
+            if options.SAVE_BEFORE_CLOSING:
                 end_url = self.db_fiddle_save()
             else:
                 end_url = self.driver.current_url
@@ -471,14 +469,16 @@ class WebHandler():
         self.close_question_windows()
         return end_url
 
-    def open_question(self, q_num, prev_url=None):
+    def open_question(self, q_num, db_prev_url=None):
         #should open leetcode window
         self.open_leetcode_win(q_num)
-        if prev_url is not None and self.is_valid_prev_url(prev_url):
-            start_url = self.get_newest_fiddle_url(prev_url)
+        if db_prev_url is not None and self.is_valid_save_url(db_prev_url):
+            if options.CHECK_NEW_SAVE_VERSIONS:
+                db_start_url = self.open_newest_fiddle_url(db_prev_url)
 
-            #start_url = prev_url
-            #self.open_db_win(start_url)
+            else:
+                db_start_url = db_prev_url
+                self.open_db_win(db_start_url)
 
         #no db-fiddle has been created, create one
         else:
@@ -494,9 +494,9 @@ class WebHandler():
             for i, table_text in enumerate(tables_text):
                 self.db_fiddle_table_input(table_names[i], table_text)
             self.db_fiddle_query_input(table_names[0])
-            start_url = self.db_fiddle_save()
+            db_start_url = self.db_fiddle_save()
         self.driver.switch_to_window(self.leet_win)
-        return start_url
+        return start_db_url
 
 
 if __name__ == '__main__':
