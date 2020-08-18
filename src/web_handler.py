@@ -1,11 +1,12 @@
-import web_options as options
+
+import config_db_fiddle
 import re
 import time
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, NoSuchWindowException, ElementNotSelectableException, ElementNotVisibleException
-from datetime import datetime, timedelta
+from selenium.common.exceptions import NoSuchElementException, NoSuchWindowException, ElementNotSelectableException, ElementNotVisibleException
+from datetime import datetime
 
 class WebHandler():
     __WAIT_LONG      = 7
@@ -13,16 +14,20 @@ class WebHandler():
     
     def __init__(self, driver):
         self.driver = driver
+        #references to each question tab in webdriver
         self.leet_win = None
         self.db_win = None
         self.solution_win = None
 
     def get_question_elements(self):
+        '''
+        From the leetcode website, captures question data
+        '''
         url = 'https://leetcode.com/problemset/database/?'
         win = self.open_new_win(url)
-        #view all problems, not just first 50
         try:
             print('\nDownloading leetcode question elements')
+            #view all problems, not just first 50
             WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
             #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in js
             element = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CLASS_NAME, 'reactable-data')))
@@ -96,8 +101,8 @@ class WebHandler():
     def open_newest_fiddle_url(self, url):
         '''
         Gets the newest version of the fiddle url
-        Each fiddle url ends with a version #, and increments up each time its saved
-        If the fiddle url redirects to db-fiddle.com that means that we went too far
+        Each saved fiddle url ends with a version #, and increments up each time its saved again
+        If the fiddle url redirects to db-fiddle.com that means the previous version was the last version saved
         Note: I tried using requests module to check if url is valid, but even when the url is redirected, the request.is_redirect flag is still False
         '''
         url_index = int(url[-1])
@@ -141,71 +146,6 @@ class WebHandler():
         '''
         self.leet_win = self.open_new_win(self.get_leetcode_url(q_num))
 
-    def test_parse_leetcode_tables_selenium():
-        # this works out the box in qtconsole only for now     
-        from selenium import webdriver
-        import re
-
-        driver = webdriver.Chrome(executable_path='/Users/jwong/Cabinet/Programming/Python/bing-rewards-master/BingRewards/drivers/chromedriver')
-
-        num = 618
-        url = 'https://leetcode.jp/problemdetail.php?id={num}'.format(num=num)
-        driver.get(url)
-        #find sql tables
-        elements_pre = driver.find_elements_by_css_selector("pre")
-        #elements_pre = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'pre')))
-        tables_pre = [element.text for element in elements_pre]
-        for table_pre in list(tables_pre):
-            #remove data type tables
-            if 'Column Name' in table_pre:
-                tables_pre.remove(table_pre)
-
-        table_lines = []
-        for table_pre in tables_pre:
-            pattern = re.compile('\+--*.*\+|\|.*\|')
-            table_lines.append(pattern.findall(table_pre))
-
-        #seperate full table data into individual tables
-        tables_text, current_table = [], []
-        #seperate table type 1, common table style
-        if '+' in table_lines[0][0]:
-            #seperate table 1
-            plus_ct = 0
-            line_i = 0
-            is_single_col = False
-            for table_line in table_lines:
-                for line in table_line:
-                    if line.count('+') == 2:
-                        is_single_col = True
-                    if '+-' in line:
-                        plus_ct += 1
-
-                    if is_single_col:
-                        line = add_col_table1(line_i, line, plus_ct == 3)
-                    current_table.append(line)
-                    line_i += 1
-                    if plus_ct == 3:
-                        tables_text.append('\n'.join(current_table))
-                        current_table = []
-                        plus_ct = 0
-                        is_single_col = False
-                        line_i = 0
-
-        #seperate table type 2, rare style
-        else:
-            for table_line in table_lines:
-                is_single_col = False
-                if table_line[0].count('|') == 2:
-                    is_single_col = True
-                for i, line in enumerate(table_line):
-                    if is_single_col:
-                        line = add_col_table2(i, line)
-                    current_table.append(line)
-                tables_text.append('\n'.join(current_table))
-                current_table = []
-
-
-
     class TableParser:
         __WAIT_LONG      = 7
         __WAIT_SHORT     = 2
@@ -218,6 +158,7 @@ class WebHandler():
             elements_pre = self.driver.find_elements_by_css_selector("pre")
             tables_pre = [element.text for element in elements_pre]
 
+            #use list() to make a copy so that removal of elements does not effect loop indexing
             for table_pre in list(tables_pre):
                 #remove data type tables
                 if 'Column Name' in table_pre:
@@ -237,6 +178,9 @@ class WebHandler():
             return table_lines
 
         def is_table1(self, table_lines):
+            '''
+            Table 1 are from newer questions where each line is sep by +---
+            '''
             return '+' in table_lines[0][0]
 
         def add_filler_col1(self, index, line, is_final=False):
@@ -281,7 +225,7 @@ class WebHandler():
 
         def seperate_tables1(self, table_lines):
             '''
-            Seperate each table of table type 1 (they contain '+' in the text) into its own item in tables_text list
+            Seperate each table of table type 1 (they contain '+' in the text) into its own item in tables_text
             '''
             tables_text, current_table = [], []
             plus_ct = line_i = 0
@@ -379,7 +323,7 @@ class WebHandler():
             except (AttributeError, IndexError):
                 names_positional = []
 
-            #2 This method gets table names using <code> tag, i.e. #176
+            #3 This method gets table names using <code> tag, i.e. #176
             elements = self.driver.find_elements_by_css_selector("code")
             element_names = set([element.text for element in elements])
             pattern = re.compile(r'[a-zA-Z]+')
@@ -395,6 +339,9 @@ class WebHandler():
             return self.get_closest_names(target_len, [names_kword, names_positional, names_code])
 
         def parse_leetcode_tables(self, leet_win):
+            '''
+            The main parsing function that combines everything together. The tables are always listed under the <pre> tag. Tables_pre includes alll this text. However, it also includes extraneous text. Table_lines removes the extraneous text. Lastly, each of the tables are seperated as an item
+            '''
             self.driver.switch_to_window(leet_win)
             tables_pre = self.parse_table_pre()
             table_lines = self.parse_table_lines(tables_pre)
@@ -415,14 +362,14 @@ class WebHandler():
         self.driver.switch_to_window(self.db_win)
         WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'ember-power-select-status-icon'))).click()
         try:
-            self.driver.find_elements_by_class_name('ember-power-select-option')[options.DB_ENGINE].click()
+            self.driver.find_elements_by_class_name('ember-power-select-option')[config_db_fiddle.DB_ENGINE].click()
         except IndexError:
             print('\nInvalid sql engine selection, changing to mySQL8')
             self.driver.find_elements_by_class_name('ember-power-select-option')[0].click()
 
     def db_fiddle_query_input(self, table_name):
-        #Code Mirror lines element must be activated, before textbox element can be sent keys
         self.driver.switch_to_window(self.db_win)
+        #Code Mirror lines element must be activated, before textbox element can be sent keys
         code_mirror = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="query"]/div[2]/div[6]/div[1]/div/div/div')))
         code_mirror.click()
         textbox = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.XPATH, '//*[@id="query"]/div[2]/div[1]/textarea')))
@@ -430,8 +377,6 @@ class WebHandler():
         textbox.send_keys(query)
 
     def db_fiddle_table_input(self, table_name, table_text):
-        #text to DDL
-        #table_text = '+--------------------+---------+\n| product_name       | unit    |\n+--------------------+---------+\n| Leetcode Solutions | 130     |\n| Leetcode Kit       | 100     |\n+--------------------+---------+'
         self.driver.switch_to_window(self.db_win)
         fluent_wait = WebDriverWait(self.driver, self.__WAIT_SHORT, poll_frequency=.5, ignored_exceptions=[ElementNotVisibleException, ElementNotSelectableException])
         fluent_wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="schema"]/div[3]/button[1]'))).click()
@@ -460,7 +405,7 @@ class WebHandler():
         end_url = None
         try:
             self.driver.switch_to_window(self.db_win)
-            if options.SAVE_BEFORE_CLOSING:
+            if config_db_fiddle.SAVE_BEFORE_CLOSING:
                 end_url = self.db_fiddle_save()
             else:
                 end_url = self.driver.current_url
@@ -470,17 +415,20 @@ class WebHandler():
         return end_url
 
     def open_question(self, q_num, db_prev_url=None):
-        #should open leetcode window
+        '''
+        Opens the leetcode problem, and a db-fiddle of that problem
+        '''
         self.open_leetcode_win(q_num)
-        if db_prev_url is not None and self.is_valid_save_url(db_prev_url):
-            if options.CHECK_NEW_SAVE_VERSIONS:
-                db_start_url = self.open_newest_fiddle_url(db_prev_url)
 
+        #a db fiddle has already been created
+        if db_prev_url is not None and self.is_valid_save_url(db_prev_url):
+            if config_db_fiddle.CHECK_NEW_SAVE_VERSIONS:
+                db_start_url = self.open_newest_fiddle_url(db_prev_url)
             else:
                 db_start_url = db_prev_url
                 self.open_db_win(db_start_url)
 
-        #no db-fiddle has been created, create one
+        #no db-fiddle has been created yet
         else:
             self.open_db_win()
             self.db_fiddle_select_engine()
@@ -496,48 +444,4 @@ class WebHandler():
             self.db_fiddle_query_input(table_names[0])
             db_start_url = self.db_fiddle_save()
         self.driver.switch_to_window(self.leet_win)
-        return start_db_url
-
-
-if __name__ == '__main__':
-    from selenium import webdriver
-    import os
-    #q_num = 1517
-    driver_path = os.path.join('drivers','chromedriver') 
-    from driver import Driver
-    wh = WebHandler(Driver.get_driver(driver_path))
-
-    q_num = 613
-    wh.open_leetcode_win(q_num)
-
-    wh.open_db_win()
-    #parse the tables
-
-    for i, table_text in enumerate(tables_text):
-        wh.db_fiddle_table_input(table_names[i], table_text)
-
-
-
-
-
-    #url = 'https://www.db-fiddle.com/f/oGBBsMS81pMbm3eYDWTm7S/0'
-    #newest = wh.get_newest_fiddle_url(url)
-    #wh.open_question(q_num)
-    
-
-    ''' get_question testing
-    wh.close_curr_windows()
-    wh.open_leetcode_win(q_num)
-
-    prev_url = wh.get_prev_db_url(q_num)
-
-    wh.open_db_win()
-    #parse the tables
-
-    table_names, tables_text = wh.parse_leetcode_tables(q_num)
-    #dump tables onto db fiddle
-    for i, table_text in enumerate(tables_text):
-        wh.db_fiddle_table_input(table_names[i], table_text)
-    wh.db_fiddle_query_input(table_names[0])
-    save_url = wh.db_fiddle_save()
-    '''    
+        return db_start_url

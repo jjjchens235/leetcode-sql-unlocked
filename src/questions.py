@@ -1,27 +1,10 @@
-from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-import sys
 import pprint
-from collections import defaultdict
 import time
-from driver import Driver
 
-def print_file(txt):
-    date = datetime.now().strftime('%Y-%m-%d-%M')
-    txt = str(txt)
-    print(txt, file=open('/Users/jwong/Cabinet/Out/' + date + ' html.txt','w'))
-
-def print_questions(questions):
-    date = datetime.now().strftime('%Y-%m-%d-%M')
-    file=open('/Users/jwong/Cabinet/Out/' + date + ' html.txt','w')
-    pprint.pprint(questions,file)
-
-
-
-class Question:
+class QuestionNode:
+    '''
+    Each question node has a number, name, and level attribute and a pointer to the next node, as well as pointer to the next node of the same level
+    '''
     def __init__(self, number, name, level, next=None, next_same_lvl=None):
         self.number = number
         self.name = name
@@ -30,13 +13,14 @@ class Question:
         self.next_same_lvl = next_same_lvl
 
 class QuestionDirectory:
+    '''
+    The questions are represented as a linked list type structure. The current node is saved in a log file, so the next question can be easily accessed. However, the user also has an option of selecting by question number, meaning there's potential of jumping many nodes across, so each question node can also be accessed by its number key.
+    '''
     DEFAULT_NUM_TO_DISPLAY = 15
 
     def __init__(self, question_elements, curr_log_num):
-        
         self.question_nodes = {}
         self.current = self.create_q_nodes(question_elements, curr_log_num) 
-
 
     def create_q_nodes(self, question_elements, curr_log_num):
         head = None
@@ -51,7 +35,7 @@ class QuestionDirectory:
         for q_num in question_elements.keys():
             name = question_elements[q_num]['name']
             level = question_elements[q_num]['level']
-            q = Question(q_num, name, level)
+            q = QuestionNode(q_num, name, level)
             self.question_nodes[q_num] = q
             if q_num == curr_log_num:
                 curr = q
@@ -94,11 +78,9 @@ class QuestionDirectory:
             curr = head.next
         return curr
 
-
     def print_q_nodes(self):
         curr = self.current
         while curr.number != self.current.number:
-            #q_number = curr.number
             print('Current Question: ' + str(curr.number) +', Question Name: ' + curr.name + ', Level: ' + curr.level + ', Next Question: ' + str(curr.next.number) + ' , Next Same Level Question: ' + str(curr.next_same_lvl.number) + '\n')
             curr = curr.next
             
@@ -150,41 +132,10 @@ class QuestionDirectory:
         return nodes
 
     def display_questions(self, level=None , n=None):
-        #level_args = {'de':'easy', 'display easy':'easy', 'dm':'medium', 'display medium':'medium', 'dh':'hard', 'display hard':'hard'}
-
         if n is None:
             n = QuestionDirectory.DEFAULT_NUM_TO_DISPLAY
         q_names = [node.name for node in self.get_next_n_nodes(n, level)]
-        print('\nDisplaying next {n}{level} questions:\n'.format(n=n,level= ' '+ level if level is not None else ''))
+        print('\nDisplaying next {n}{level} questions:\n'.format(n=n, level= ' '+ level if level is not None else ''))
         pprint.pprint(q_names)
         time.sleep(2)
         return q_names
-
-            
-
-if __name__ == '__main__':
-    driver = webdriver.Chrome(executable_path='/Users/jwong/Cabinet/Programming/Python/bing-rewards-master/BingRewards/drivers/chromedriver')
-    url = 'https://leetcode.com/problemset/database/?'
-    driver.get(url)
-    WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
-
-
-    #note that this element can only be found using selenium because the table is generated after the fact in javascript
-    element = driver.find_element_by_class_name('reactable-data')
-
-    text =  [' '.join(line.split()) for line in element.text.split('\n')]
-    questions = {}
-    levels = defaultdict(list)
-
-    for i, line in enumerate(text):
-        if (i+1) % 3 == 0:
-            q_num = int(text[i-2])
-            level = line.split()[1].lower()
-            levels[level].append(q_num)
-            q_name = text[i-2] + ': ' + text[i-1] + ', ' + level
-            questions[q_num] = {'level':level, 'name':q_name}
-
-
-    curr_log_num = 584
-    q_dir = QuestionDirectory(questions, curr_log_num)
-    q_dir.display_questions(level='medium', n=200)

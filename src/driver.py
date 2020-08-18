@@ -35,7 +35,7 @@ class Driver:
             response = urlopen("https://sites.google.com/a/chromium.org/chromedriver/downloads").read()
         #download second latest version,most recent is sometimes not out to public yet
         latest_version = re.findall(b"ChromeDriver \d+\.\d+\.\d+\.\d+",response)[driver_dl_index].decode().split()[1]
-        print('downloading chrome driver version: ' + latest_version)
+        print('\nDownloading chrome driver version: ' + latest_version)
 
         if system == "Windows":
             url = "https://chromedriver.storage.googleapis.com/{}/chromedriver_win32.zip".format(latest_version)
@@ -100,9 +100,3 @@ class Driver:
                 break
             driver_dl_index -= 1
         return EventFiringWebDriver(driver, EventListener())
-
-    def close(driver):
-        # close open tabs
-        for handle in driver.window_handles:
-            driver.switch_to.window(handle)
-            driver.close()
