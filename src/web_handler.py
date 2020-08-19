@@ -161,7 +161,7 @@ class WebHandler():
             #use list() to make a copy so that removal of elements does not effect loop indexing
             for table_pre in list(tables_pre):
                 #remove data type tables
-                if 'Column Name' in table_pre:
+                if 'Column Name' in table_pre or 'Type' in table_pre:
                     tables_pre.remove(table_pre)
             return tables_pre
 
@@ -173,8 +173,9 @@ class WebHandler():
             '''
             table_lines = []
             for table_pre in tables_pre:
-                pattern = re.compile('\+--*.*\+|\|.*\|')
-                table_lines.append(pattern.findall(table_pre))
+                matches = re.findall(r'\+--*.*\+|\|.*\|', table_pre)
+                if len(matches) > 0:
+                    table_lines.append(matches)
             return table_lines
 
         def is_table1(self, table_lines):
@@ -216,8 +217,8 @@ class WebHandler():
             for each non-valid char match, returns a space 
             The inner function adds a space for every match, rather than just one space for all matches
             '''
-            #valid characters for tables names | valid characters for tables
-            pattern = re.compile(r'[^_A-Za-z\s\|\+\-]+')
+            #valid characters for tables names | valid characters for table row demarcations
+            pattern = re.compile(r'[^\w\s\|\+\-]+')
             def repl(m):
                 return ' ' * len(m.group())
             sub = re.sub(pattern, repl, line)
@@ -279,6 +280,10 @@ class WebHandler():
             '''
             Returns the names list that has a length closest to the number of tables parsed
             '''
+            print('names_args:' + str(names_args))
+            with open("unknown.txt",'a',encoding = 'utf-8') as f:
+               f.write("unknown column names")
+               f.write(str(names_args))
             min_diff = float('inf')
             for names in names_args:
                 diff = abs(target_len - len(names))
@@ -301,13 +306,25 @@ class WebHandler():
             return names_final
 
         def parse_table_names(self, tables_pre, target_len):
-            #1 This method gets tables using regex looking for keyword 'table'
-            pattern = re.compile('.+table')
-            names_kword = pattern.findall(''.join(tables_pre))
-            names_kword = [table_name.replace('table','').strip() for table_name in names_kword]
-            names_kword = self.add_result_tbl_name(names_kword)
-            if len(names_kword) == target_len:
-                return names_kword
+            '''
+            The naming of the tables in leetcode is inconsistent. Below are first different ways to parse the table names.
+            '''
+            def remove_dups(l):
+                '''
+                inner function to remove dups from names list while preserving order (Python 3.6+)
+                '''
+                return list(dict.fromkeys(l))
+
+            #method 1: gets tables using regex looking for keyword 'table'
+            try:
+                #the regex is looking  any words preceding the keyword tableand after a newline or start of string
+                groups = re.findall(r'(\n|^)(\w+)\stable', ''.join(tables_pre))
+                names_kword =  remove_dups([group[1] for group in groups])
+                names_kword = self.add_result_tbl_name(names_kword)
+                if len(names_kword) == target_len:
+                    return names_kword
+            except:
+                names_kword = []
 
             #method 2, from <pre> tag, collects the first word above each table line
             table_pre = '\n'.join(tables_pre)
@@ -325,9 +342,9 @@ class WebHandler():
 
             #3 This method gets table names using <code> tag, i.e. #176
             elements = self.driver.find_elements_by_css_selector("code")
-            element_names = set([element.text for element in elements])
+            element_names = remove_dups([element.text for element in elements])
             pattern = re.compile(r'[a-zA-Z]+')
-            invalid_names = ['null', 'DIAB1']
+            invalid_names = ['null', 'DIAB1','B']
             names_code = []
             for name in element_names:
                 if pattern.match(name) and name not in invalid_names:
@@ -336,7 +353,49 @@ class WebHandler():
             if len(names_code) == target_len:
                 return names_code
 
-            return self.get_closest_names(target_len, [names_kword, names_positional, names_code])
+            #4 Bold
+            def get_bold_table_names():
+                '''
+                For a few problems like 579,580,585,586 the table name is next to the word table and bolded. First find all <p> tags, then save those that have <b> tags and the word 'table' in them
+                This method is pretty complicated because for the name to be added to the list, it needs to meet multiple specifications. Firstly, the paragraph must contain a bolded word. Secondly, the paragraph must contain the word 'table'. Thirdly, the word preceding table or the word after table must match the bolded word
+                '''
+                names = []
+                try:
+                    paragrahs = self.driver.find_elements_by_css_selector("p")
+                except:
+                    pass
+                for paragraph in paragrahs: 
+                    #try to find bolded word(s) in paragraph
+                    try:
+                        bolded = paragraph.find_elements_by_css_selector("b")
+                        #See if paragraph has the word table and preceding table name
+                        try:
+                            preceding = re.search(r'(\w+)\s[tT]able', paragraph.text).group(1)
+                            #compare bolded word against the word preceding the keyword table
+                            for bold in bolded:
+                                if preceding == bold.text:
+                                    names.append(bold.text)
+
+                            #negative lookaround, looks for the word after keyword table and any whitespace, non-ascii characters
+                            after = re.search(r'(?<=table)s?[\s\W]*(\w+)', paragraph.text).group(1)
+                            #compare bolded word against the word after table keyword
+                            for bold in bolded:
+                                if after == bold.text:
+                                    names.append(bold.text)
+                        #no keyword table in paragraph
+                        except:
+                            pass
+                    #no bolded word in paragraph
+                    except:
+                        pass
+                return remove_dups(names)
+
+            names_bold = get_bold_table_names()
+            names_bold = self.add_result_tbl_name(names_bold)
+            if len(names_bold) == target_len:
+                return names_bold
+
+            return self.get_closest_names(target_len, [names_kword, names_positional, names_code, names_bold])
 
         def parse_leetcode_tables(self, leet_win):
             '''
