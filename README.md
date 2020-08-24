@@ -1,12 +1,13 @@
 
-## Overview
-Through the command line, the user can easily access all ~100 leetcode SQL questions, even the locked ones, and automatically generate the tables in db-fiddle.com
+Through the command line, the user can easily access all ~125 LeetCode SQL questions, even the locked ones, and automatically generate the tables in db-fiddle.com
+
+![GIF demo](img/demo.gif)
 
 ## Features
-* Auto-generate tables from each leetcode problem into db-fiddle so all your code/queries can be tested
+* Auto-generate tables from each LeetCode problem into db-fiddle so all your code/queries can be tested
 * Past db-fiddles are saved, so progress is never lost and the user can continue right where they left off
 * Solutions tab easily opened
-* Convenient leetcode question navigation, by level or by number
+* Convenient LeetCode question navigation, by level or by number
 
 ## Getting Started
 1. Requires Google Chrome which can be downloaded from https://www.google.com/chrome/browser/desktop/index.html
@@ -46,5 +47,9 @@ The following db-fiddle settings can be optionally configured inside *leetcode_s
 `
 
 ## Known Issues
-* Columns with only blank values are parsed as Integer in db-fiddle's text to DDL parser, however, this ends up throwing an error when the tables are actually queried on. This issue occurs for problem #586, a simple fix is switching from Integer to Varchar(1)
+* Columns with only blank values are parsed as INTEGER in db-fiddle's text to DDL parser, however, this ends up throwing an error when the tables are actually queried on. This issue occurs for problem #586, a simple fix is switching from INTEGER to VARCHAR(1) in the table schema.
 * Some problems don't have actual table data, for example problem #175, so no db-fiddle can be created
+
+## DB Fiddle url quick access
+For convenience, [this file](db_fiddle_all_urls.txt) contains db-fiddle links for almost every LeetCode sql problem. This might be useful if you want to try one problem really quickly, you don't have Python, etc.
+
