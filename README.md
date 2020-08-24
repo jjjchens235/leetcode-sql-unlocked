@@ -1,67 +1,50 @@
 
-#Issue One
+## Overview
+Through the command line, the user can easily access all ~100 leetcode SQL questions, even the locked ones, and automatically generate the tables in db-fiddle.com
 
-I'm not sure how to delegate the question_elements() method. There are a few moving pieces here that make it complicated. Firstly, question elements is needed by the question class, so should we let question class handle it.
+## Features
+* Auto-generate tables from each leetcode problem into db-fiddle so all your code/queries can be tested
+* Past db-fiddles are saved, so progress is never lost and the user can continue right where they left off
+* Solutions tab easily opened
+* Convenient leetcode question navigation, by level or by number
 
-#Option 1
-We let questions class handle question_elements. That means we have to pass in a driver class and a hist_log class. Not a good idea.
+## Getting Started
+1. Requires Google Chrome which can be downloaded from https://www.google.com/chrome/browser/desktop/index.html
+2. Python 3.6+. If you don't already have Python 3 installed, visit https://www.python.org/downloads/
+3. Now install the dependencies using requirements.txt file included in the repo: `pip install -r leetcode_sql_unlocked/requirements.txt`
+4. And you're all set. To start the program run `leetcode_sql_unlocked/leetcode_sql_unlocked.py` and follow the onscreen prompt
 
-#Option 2
-Let's say  web_handler class is the one that gets question_elements. But we save question_elements to log class.
-And from log class, we pass this in to questions class.
+## Command Line Options
+`
+  (h)elp                            Show this help menu
+  (n)ext [LEVEL]                    Select next problem. Optionally, go next
+                                    by level [(e)asy, (m)edium, (h)ard],
+                                    default ignores levels. I.e. 'n' or 'n e'
+                                    or 'next easy'
+  (q)uestion NUMBER                 Select problem by question number i.e. 'q
+                                    183' or 'question 183'
+  (s)olution                        Open solution of current problem in
+                                    webpage
+  (d)isplay [LEVEL] [# TO DISPLAY]  Displays list of problems. Optionally, can
+                                    display by level [(e)asy, (m)edium,
+                                    (h)ard]. Optionally, can also choose how
+                                    many problems to display, default is 15.
+                                    Ex: 'd' is to display next 15 problems of
+                                    all levels, 'd e 30' is to display the
+                                    next 30 easy problems.
+  (e)xit                            Exit program
+`
 
+## Optional Config
+The following db-fiddle settings can be optionally configured inside *leetcode_sql_unlocked/config_db_fiddle.py*:
 
-So since Option 2 is better, where do we start ?
+`DB_OPTION`: User has the following databases to choose from, MYSQL_8, POSTGRES_12, and SQLITE_3_3. Default is MYSQL_8.
 
-Let's first move question elements to the web_driver class.
-Let's then update leetcode_sql_unlocked.py
+`SAVE_BEFORE_CLOSING`: If `True`, before going to the next question or exiting, will save the current fiddle automatically. Default is `False`, meaning the user must click save in the db-fiddle for changes to be saved.
 
-The logic in leetcocde_unlocked.py, lets call it main(), is that we create a HistLog object. The HistLog object then calls a method called is_stale_questions()
+`CHECK_NEW_SAVE_VERSIONS`: If `True`, will check for any newer versions of the db-fiddle. Default is `False`. This setting should only be switched to True if user is planning to make changes to db-fiddles outside of this program.
+`
 
-
-
-
-
-	
-#Issue two - creating and reading in log question status
-
-For q_elements log, we want to refresh from web if the last time we pulled was more than 13 days ago.
-Or, if the elements log doesn't exist.
-Else we just read in the last log
-
-For q_state, this is where I'm stuck. HEre are the possiblities:
-1. 
-
-#Issue 3
-
-If the table only has one column, we want to create a second column called 'ignore' filled with _ values
-
-If first line has only two +, or two | then it is 1 column
-if line is column name (not always on second lne), we count how much of that line doesnt match (|)
-
-
-Actually ... forgot all of the above.
-Let's do it like this.
-We test what kind of table it is, there are 2, its first line either starts with 
-Ok let's first assume we know it's either Table Type 1 (+) or Type 2 (|--) and we already have everything parsed into individual tables.
-I think we can just append pre-made column to any table that only has one column
-
-
-#Issue 4
-
-Let's start from here before tackling issue 3. We first want to figure out what kind of table it is after we get table_lines
-Table Type 1: They include + signs
-Table Type 2: Don't include + signs. Instead, their second row is always |----|
-
-For table type 1, we already solved this probelm.
-For Table Typen 2, I think we have to append each line until we either get to a |--- in which case, we pop twice, add popped to temp table first_two, and then taking non-popped elements we create our first table.
-
-
-#Issue 5
-what happens if it's a new valid question, but it hasn't been uploaded to JP yet. In faxt let's expand this question a little more broadly, let's say there's a question that is valid that makes us error out, let's say we can't scrape it correctly.
-
-How do we allow the user to try a new problem
-
-We can solve it on the level of the method within web_handler.py, or within leetcode's main()
-
-if solving at the level of web_handler methods, we would bewould need to find the methods where it would be ok to error out on.
+## Known Issues
+* Columns with only blank values are parsed as Integer in db-fiddle's text to DDL parser, however, this ends up throwing an error when the tables are actually queried on. This issue occurs for problem #586, a simple fix is switching from Integer to Varchar(1)
+* Some problems don't have actual table data, for example problem #175, so no db-fiddle can be created
