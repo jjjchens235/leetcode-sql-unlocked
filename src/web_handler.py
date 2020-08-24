@@ -94,8 +94,11 @@ class WebHandler():
         '''
         Check if url is a saved db-fiddle. It needs to start with https://db-fiddle, and end with a /0-9
         '''
-        if re.search(r'^https://www\.db-fiddle.*/\d+$', url) is not None:
-            return True
+        try:
+            if re.search(r'^https://www\.db-fiddle.*/\d+$', url) is not None:
+                return True
+        except:
+            pass
         return False
 
     def open_newest_fiddle_url(self, url):
@@ -328,7 +331,7 @@ class WebHandler():
             '''
             elements = self.driver.find_elements_by_css_selector("code")
             element_names = self.remove_dups([element.text for element in elements])
-            invalid_names = ['null', 'DIAB1','B']
+            invalid_names = ['null', 'DIAB1','B', 'delete']
             names_code = []
             for name in element_names:
                 if re.match(r'[a-zA-Z]+', name) and name not in invalid_names:
@@ -379,9 +382,6 @@ class WebHandler():
             This will only be called when the number of table names parsed does not equal to the number of tables parsed
             '''
             print('names_args:' + str(names_args))
-            with open("unknown.txt",'a',encoding = 'utf-8') as f:
-               f.write("unknown column names")
-               f.write(str(names_args))
             min_diff = float('inf')
             for names in names_args:
                 diff = abs(target_len - len(names))
