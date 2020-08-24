@@ -1,15 +1,15 @@
-from src.help_menu import HelpMenu
-from src.questions import QuestionDirectory
-from src.driver import Driver
-from src.web_handler import WebHandler
-from src.log import QuestionLog
-from datetime import datetime
-from selenium.common.exceptions import NoSuchWindowException, NoSuchElementException, WebDriverException
 import os
 import re
 import time
 import logging
 import traceback
+from datetime import datetime
+from selenium.common.exceptions import NoSuchWindowException, NoSuchElementException, WebDriverException
+from src.help_menu import HelpMenu
+from src.questions import QuestionDirectory
+from src.driver import Driver
+from src.web_handler import WebHandler
+from src.log import QuestionLog
 
 def clean_user_input(user_input):
     '''
@@ -23,7 +23,7 @@ def is_stale_file(file_path, days_till_stale=13):
     '''
     Used to determine whether or not questions list need to be updated from leetcode.com in case there are new questions. Default is to update every two weeks
     '''
-    mtime = os.path.getmtime(file_path) 
+    mtime = os.path.getmtime(file_path)
     return (datetime.now() - datetime.fromtimestamp(mtime)).days > days_till_stale
 
 def print_options(s, n_sleep=1):
@@ -32,7 +32,7 @@ def print_options(s, n_sleep=1):
 
 def close_question(q_num, web_handler, q_log):
     try:
-        start_url = q_log['url'][q_num]
+        start_url = q_log.q_state['url'][q_num]
     #no valid url was created in open_questions()
     except:
         start_url = None
@@ -123,7 +123,7 @@ def parse_display_args(user_input):
     except AttributeError:
         pass
     return level_arg, num_to_display_arg
-    
+
 def display_questions_option(user_input, question_dir):
     '''
     Main display method
@@ -167,7 +167,7 @@ def options(user_input, question_dir, q_log, web_handler):
 
         elif start_input == 'n':
             next_option(user_input, question_dir, q_log, web_handler)
-                        
+
         elif start_input == 'q' or is_num_only:
             if user_input == ('q'):
                 print_options("Invalid input. If you want to select by question number input 'q NUMBER'. Else if you want to quit, press 'e' to exit")
@@ -176,7 +176,7 @@ def options(user_input, question_dir, q_log, web_handler):
             else:
                 question_by_number_option(user_input, question_dir, q_log, web_handler)
         elif start_input == 's':
-            solution_option(web_handler, question_dir.get_current_num())
+            solution_option(web_handler, question_dir.get_current())
         elif start_input == 'd':
             display_questions_option(user_input, question_dir)
         elif start_input == 'e':
@@ -207,7 +207,7 @@ if not os.path.exists(LOG_DIR):
 
 logging.basicConfig(level=logging.ERROR, format='%(message)s', filename=os.path.join(LOG_DIR, ERROR_LOG))
 
-driver_path = os.path.join('drivers','chromedriver') 
+driver_path = os.path.join('drivers','chromedriver')
 web_handler = WebHandler(Driver.get_driver(driver_path))
 q_log = QuestionLog(os.path.join(LOG_DIR, Q_ELEMENTS_LOG), os.path.join(LOG_DIR, Q_STATE_LOG))
 

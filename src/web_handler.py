@@ -11,7 +11,7 @@ from datetime import datetime
 class WebHandler():
     __WAIT_LONG      = 7
     __WAIT_SHORT     = 2
-    
+
     def __init__(self, driver):
         self.driver = driver
         #references to each question tab in webdriver
@@ -73,7 +73,7 @@ class WebHandler():
 
     def reset_curr_window(self):
         try:
-            self.driver.switch_to_window(self.get_last_window()) 
+            self.driver.switch_to_window(self.get_last_window())
         except:
             pass
 
@@ -123,18 +123,21 @@ class WebHandler():
                 self.close_window(window)
         return base_url + str(url_index - 2)
 
-    def open_solution_win(self, q_num):
-        q_num = '\'' + str(q_num).zfill(4) + '\''
+    def open_solution_win(self, question):
+        q_num = '\'' + str(question.number).zfill(4) + '\''
         try:
             url = 'https://github.com/kamyu104/LeetCode-Solutions#sql'
             self.solution_win = self.open_new_win(url)
             #find question from github page
-            WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH,("//*[contains(text(),{q_num})]/following-sibling::td/following-sibling::td".format(q_num=q_num))))).click()
+            WebDriverWait(self.driver, 3).until(EC.element_to_be_clickable((By.XPATH,("//*[contains(text(),{q_num})]/following-sibling::td/following-sibling::td".format(q_num=q_num))))).click()
             #find solution text, and scroll to it
             element = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[itemprop="text"]')))
             self.driver.execute_script("arguments[0].scrollIntoView();", element)
         except:
-            print('\nSolution not found')
+            print('\nNo GitHub solution found for this problem... doing a google search instead')
+            base_url = 'https://www.google.com/search?q='
+            search_term = '+'.join(question.name.split()) + '+leetcode+solution'
+            self.driver.get(base_url+ search_term)
 
 
     def get_leetcode_url(self, q_num):
@@ -161,7 +164,7 @@ class WebHandler():
             #use list() to make a copy so that removal of elements does not effect loop indexing
             for table_pre in list(tables_pre):
                 #remove data type tables
-                if 'Column Name' in table_pre:
+                if 'Column Name' in table_pre or 'Type' in table_pre:
                     tables_pre.remove(table_pre)
             return tables_pre
 
@@ -173,8 +176,9 @@ class WebHandler():
             '''
             table_lines = []
             for table_pre in tables_pre:
-                pattern = re.compile('\+--*.*\+|\|.*\|')
-                table_lines.append(pattern.findall(table_pre))
+                matches = re.findall(r'\+--*.*\+|\|.*\|', table_pre)
+                if len(matches) > 0:
+                    table_lines.append(matches)
             return table_lines
 
         def is_table1(self, table_lines):
@@ -210,16 +214,23 @@ class WebHandler():
             else:
                 concat = '   _   |'
             return line + concat
-        
+
+        def update_date_format(self, line):
+            '''
+            db-fiddle likes dates formatted as Y-m-d (i.e. 2020-5-1), 2 digit padding is optional
+            '''
+            pattern = re.compile(r'(\d{1,2})/(\d{1,2})/(\d{4})')
+            return re.sub(pattern, r'\g<3>-\g<1>-\g<2>', line)
+
         def replace_invalid_char_header(self, line):
             '''
-            for each non-valid char match, returns a space 
+            for each non-valid char match, returns a space
             The inner function adds a space for every match, rather than just one space for all matches
             '''
-            #valid characters for tables names | valid characters for tables
-            pattern = re.compile(r'[^_A-Za-z\s\|\+\-]+')
+            #valid characters for tables names | valid characters for table row demarcations
+            pattern = re.compile(r'[^\w\s\|\+\-]+')
             def repl(m):
-                return ' ' * len(m.group())
+                return '_' * len(m.group())
             sub = re.sub(pattern, repl, line)
             return sub
 
@@ -239,6 +250,8 @@ class WebHandler():
                         is_single_col = True
                     if '+-' in line:
                         plus_ct += 1
+                    if line.count('/') >= 2:
+                        line = self.update_date_format(line)
 
                     if is_single_col:
                         line = self.add_filler_col1(line_i, line, plus_ct == 3)
@@ -265,20 +278,110 @@ class WebHandler():
                         line = self.replace_invalid_char_header(line)
                     if is_single_col:
                         line = self.add_filler_col2(line_i, line)
+                    if line.count('/') >= 2:
+                        line = self.update_date_format(line)
                     current_table.append(line)
                 tables_text.append('\n'.join(current_table))
                 current_table = []
             return tables_text
 
-        def add_result_tbl_name(self, names):
-            if 'Result' not in names and 'result' not in names:
-                names.append('Result')
-            return names
+        def remove_dups(self, l):
+            '''
+            remove dups from list while preserving order (Python 3.6+)
+            '''
+            return list(dict.fromkeys(l))
+
+        def parse_table_names_by_kword(self, tables_pre):
+            '''
+            Finds table name based on table kword in <pre> tag text only
+            The <pre> tags contain the actual tables
+            '''
+            try:
+                #the regex is looking  any words preceding the keyword tableand after a newline or start of string
+                groups = re.findall(r'(\n|^)(\w+)\stable', ''.join(tables_pre))
+                return [group[1] for group in groups]
+            except:
+                return []
+
+        def parse_table_names_by_position(self, tables_pre):
+            '''
+            Find table name by position in <pre> text only
+            The <pre> tags contain the actual tables
+            '''
+            #method 2, from <pre> tag, collects the first word above each table line
+            table_pre = '\n'.join(tables_pre)
+            try:
+                #capture words before first table
+                name_first_position = [re.match(r'(.*)\n\+-', table_pre).group(1)]
+                #capture words between 2 new lines, and next table
+                names_remaining_position = re.findall(r'\n\n(.*?)\n\+-', table_pre)
+                names_position = name_first_position + names_remaining_position
+                return [name.split()[0] for name in names_position]
+
+            except (AttributeError, IndexError):
+                return []
+
+        def parse_table_names_by_code_tag(self):
+            '''
+            Find table name by <code> tag within ENTIRE web page
+            A few early problems like #176 uses this method
+            '''
+            elements = self.driver.find_elements_by_css_selector("code")
+            element_names = self.remove_dups([element.text for element in elements])
+            invalid_names = ['null', 'DIAB1','B']
+            names_code = []
+            for name in element_names:
+                if re.match(r'[a-zA-Z]+', name) and name not in invalid_names:
+                    names_code.append(name)
+            return names_code
+
+        def parse_table_names_by_bold(self):
+            '''
+            Find table name by <b> tag within ENTIRE web page. This is used only for a few problems like 579,580,585,586 where the table name is next to the word table and bolded.
+            Further implenetation details:
+            For the name to be added to the list, it needs to meet multiple specifications. Firstly, the paragraph must contain a bolded word. Secondly, the paragraph must contain the word 'table'. Thirdly, the word preceding table or the word after table must match the bolded word
+
+            '''
+            names_bold = []
+            try:
+                paragrahs = self.driver.find_elements_by_css_selector("p")
+            except:
+                pass
+            for paragraph in paragrahs:
+                #try to find bolded word(s) in paragraph
+                try:
+                    bolded = paragraph.find_elements_by_css_selector("b")
+                    #See if paragraph has the word table and preceding table name
+                    try:
+                        preceding = re.search(r'(\w+)\s[tT]able', paragraph.text).group(1)
+                        #compare bolded word against the word preceding the keyword table
+                        for bold in bolded:
+                            if preceding == bold.text:
+                                names_bold.append(bold.text)
+
+                        #negative lookaround, looks for the word after keyword table and any whitespace, non-ascii characters
+                        after = re.search(r'(?<=table)s?[\s\W]*(\w+)', paragraph.text).group(1)
+                        #preceding and after need seperate for loop because if there's a table kword, there is always a preceding but not always an after
+                        for bold in bolded:
+                            if after == bold.text:
+                                names_bold.append(bold.text)
+                    #no keyword table in paragraph
+                    except:
+                        pass
+                #no bolded word in paragraph
+                except:
+                    pass
+            return names_bold
 
         def get_closest_names(self,  target_len, names_args):
             '''
             Returns the names list that has a length closest to the number of tables parsed
+            This will only be called when the number of table names parsed does not equal to the number of tables parsed
             '''
+            print('names_args:' + str(names_args))
+            with open("unknown.txt",'a',encoding = 'utf-8') as f:
+               f.write("unknown column names")
+               f.write(str(names_args))
             min_diff = float('inf')
             for names in names_args:
                 diff = abs(target_len - len(names))
@@ -301,42 +404,29 @@ class WebHandler():
             return names_final
 
         def parse_table_names(self, tables_pre, target_len):
-            #1 This method gets tables using regex looking for keyword 'table'
-            pattern = re.compile('.+table')
-            names_kword = pattern.findall(''.join(tables_pre))
-            names_kword = [table_name.replace('table','').strip() for table_name in names_kword]
-            names_kword = self.add_result_tbl_name(names_kword)
-            if len(names_kword) == target_len:
-                return names_kword
+            '''
+            The naming of the tables in leetcode is inconsistent. Below are first different ways to parse the table names.
+            '''
 
-            #method 2, from <pre> tag, collects the first word above each table line
-            table_pre = '\n'.join(tables_pre)
-            try:
-                #capture words before first table
-                name_first = [re.match(r'(.*)\n\+-', table_pre).group(1)]
-                #capture words between 2 new lines, and next table
-                names_remaining = re.findall(r'\n\n(.*?)\n\+-', table_pre)
-                names_positional = name_first + names_remaining
-                names_positional = [name.split()[0] for name in names_positional]
-                if len(names_positional) == target_len:
-                    return names_positional
-            except (AttributeError, IndexError):
-                names_positional = []
+            def add_result_tbl_name(names):
+                if 'Result' not in names and 'result' not in names:
+                    names.append('Result')
+                return names
 
-            #3 This method gets table names using <code> tag, i.e. #176
-            elements = self.driver.find_elements_by_css_selector("code")
-            element_names = set([element.text for element in elements])
-            pattern = re.compile(r'[a-zA-Z]+')
-            invalid_names = ['null', 'DIAB1']
-            names_code = []
-            for name in element_names:
-                if pattern.match(name) and name not in invalid_names:
-                    names_code.append(name)
-            names_code = self.add_result_tbl_name(names_code)
-            if len(names_code) == target_len:
-                return names_code
+            #a list of each list of parsed names
+            all_names = []
+            parse_name_funcs = [self.parse_table_names_by_kword, self.parse_table_names_by_position, self.parse_table_names_by_code_tag, self.parse_table_names_by_bold]
 
-            return self.get_closest_names(target_len, [names_kword, names_positional, names_code])
+            for parse_names in parse_name_funcs:
+                try:
+                    names = parse_names(tables_pre)
+                except TypeError:
+                    names = parse_names()
+                names = add_result_tbl_name(self.remove_dups(names))
+                if len(names) == target_len:
+                    return names
+                all_names.append(names)
+            return self.get_closest_names(target_len, all_names)
 
         def parse_leetcode_tables(self, leet_win):
             '''
@@ -351,7 +441,7 @@ class WebHandler():
                 tables_text = self.seperate_tables1(table_lines)
             else:
                 tables_text = self.seperate_tables2(table_lines)
-                
+
             table_names = self.parse_table_names(tables_pre, len(tables_text))
             return table_names, tables_text
 
@@ -367,11 +457,18 @@ class WebHandler():
             print('\nInvalid sql engine selection, changing to mySQL8')
             self.driver.find_elements_by_class_name('ember-power-select-option')[0].click()
 
+    def click_query_table(self):
+        try:
+            self.driver.switch_to_window(self.db_win)
+            #Code Mirror lines element must be activated, before textbox element can be sent keys
+            code_mirror = WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="query"]/div[2]/div[6]/div[1]/div/div/div')))
+            code_mirror.click()
+        except:
+            pass
+
     def db_fiddle_query_input(self, table_name):
         self.driver.switch_to_window(self.db_win)
-        #Code Mirror lines element must be activated, before textbox element can be sent keys
-        code_mirror = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="query"]/div[2]/div[6]/div[1]/div/div/div')))
-        code_mirror.click()
+        self.click_query_table()
         textbox = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.XPATH, '//*[@id="query"]/div[2]/div[1]/textarea')))
         query = 'SELECT * FROM {table_name}'.format(table_name=table_name)
         textbox.send_keys(query)
@@ -443,5 +540,6 @@ class WebHandler():
                 self.db_fiddle_table_input(table_names[i], table_text)
             self.db_fiddle_query_input(table_names[0])
             db_start_url = self.db_fiddle_save()
+        self.click_query_table()
         self.driver.switch_to_window(self.leet_win)
         return db_start_url
