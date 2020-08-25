@@ -6,3 +6,4 @@ drivers/
 .DS_STORE
 __pycache__/
 *.pyc
+*config.py

@@ -4,7 +4,9 @@ import time
 import logging
 import traceback
 from datetime import datetime
+
 from selenium.common.exceptions import NoSuchWindowException, NoSuchElementException, WebDriverException
+
 from src.help_menu import HelpMenu
 from src.questions import QuestionDirectory
 from src.driver import Driver
@@ -190,56 +192,58 @@ def options(user_input, question_dir, q_log, web_handler):
     return True
 
 
-DRIVER_DIR = 'drivers'
-DRIVER = 'chromedriver'
+def main():
+    DRIVER_DIR = 'drivers'
+    DRIVER = 'chromedriver'
 
-LOG_DIR = 'logs'
-ERROR_LOG = 'error.log'
-Q_ELEMENTS_LOG = 'q_elements.log'
-Q_STATE_LOG = 'q_state.log'
+    LOG_DIR = 'logs'
+    ERROR_LOG = 'error.log'
+    Q_ELEMENTS_LOG = 'q_elements.log'
+    Q_STATE_LOG = 'q_state.log'
 
-os.chdir(os.path.dirname(os.path.realpath(__file__)))
-if not os.path.exists(DRIVER_DIR):
-    os.mkdir(DRIVER_DIR)
+    os.chdir(os.path.dirname(os.path.realpath(__file__)))
+    if not os.path.exists(DRIVER_DIR):
+        os.mkdir(DRIVER_DIR)
 
-if not os.path.exists(LOG_DIR):
-    os.mkdir(LOG_DIR)
+    if not os.path.exists(LOG_DIR):
+        os.mkdir(LOG_DIR)
 
-logging.basicConfig(level=logging.ERROR, format='%(message)s', filename=os.path.join(LOG_DIR, ERROR_LOG))
+    logging.basicConfig(level=logging.ERROR, format='%(message)s', filename=os.path.join(LOG_DIR, ERROR_LOG))
 
-driver_path = os.path.join('drivers','chromedriver')
-web_handler = WebHandler(Driver.get_driver(driver_path))
-q_log = QuestionLog(os.path.join(LOG_DIR, Q_ELEMENTS_LOG), os.path.join(LOG_DIR, Q_STATE_LOG))
+    driver_path = os.path.join('drivers','chromedriver')
+    web_handler = WebHandler(Driver.get_driver(driver_path))
+    q_log = QuestionLog(os.path.join(LOG_DIR, Q_ELEMENTS_LOG), os.path.join(LOG_DIR, Q_STATE_LOG))
 
-if  not os.path.exists(q_log.q_elements_path) or is_stale_file(q_log.q_elements_path):
-    q_elements = web_handler.get_question_elements()
-    q_log.write_dict(q_log.q_elements_path, q_elements)
-else:
-    q_elements = q_log.q_elements
+    if  not os.path.exists(q_log.q_elements_path) or is_stale_file(q_log.q_elements_path):
+        q_elements = web_handler.get_question_elements()
+        q_log.write_dict(q_log.q_elements_path, q_elements)
+    else:
+        q_elements = q_log.q_elements
 
-q_dir = QuestionDirectory(q_elements, q_log.q_state['current'])
-help_menu = HelpMenu(q_dir.DEFAULT_NUM_TO_DISPLAY)
-open_question(q_dir.get_current_num(), web_handler, q_log)
+    q_dir = QuestionDirectory(q_elements, q_log.q_state['current'])
+    help_menu = HelpMenu(q_dir.DEFAULT_NUM_TO_DISPLAY)
+    open_question(q_dir.get_current_num(), web_handler, q_log)
 
-is_continue = True
-tb = None
-while is_continue:
-    user_input = clean_user_input(input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=q_dir.get_current().name)))
-    try:
-        is_continue = options(user_input, q_dir, q_log, web_handler)
-    except (NoSuchWindowException, WebDriverException):
-        tb = traceback.format_exc()
-        msg =  'Browser was already closed by user, exiting now'
-    except NoSuchElementException:
-        tb = traceback.format_exc()
-        msg = 'Web element not found, exiting now'
-    except:
-        tb = traceback.format_exc()
-        msg =  'Uncaught exc, check log, exiting now'
-    finally:
-        if tb:
-            now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
-            logging.exception(now + msg + '\n' + tb)
-            is_continue = exit(web_handler, msg)
+    is_continue = True
+    tb = None
+    while is_continue:
+        user_input = clean_user_input(input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=q_dir.get_current().name)))
+        try:
+            is_continue = options(user_input, q_dir, q_log, web_handler)
+        except (NoSuchWindowException, WebDriverException):
+            tb = traceback.format_exc()
+            msg =  'Browser was already closed by user, exiting now'
+        except NoSuchElementException:
+            tb = traceback.format_exc()
+            msg = 'Web element not found, exiting now'
+        except:
+            tb = traceback.format_exc()
+            msg =  'Uncaught exc, check log, exiting now'
+        finally:
+            if tb:
+                now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
+                logging.exception(now + msg + '\n' + tb)
+                is_continue = exit(web_handler, msg)
 
-
+if __name__ == '__main__':
+    main()

@@ -1,12 +1,13 @@
-
-import config_db_fiddle
 import re
 import time
+from datetime import datetime
+
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, NoSuchWindowException, ElementNotSelectableException, ElementNotVisibleException
-from datetime import datetime
+
+from src import config
 
 class WebHandler():
     __WAIT_LONG      = 7
@@ -452,7 +453,7 @@ class WebHandler():
         self.driver.switch_to_window(self.db_win)
         WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'ember-power-select-status-icon'))).click()
         try:
-            self.driver.find_elements_by_class_name('ember-power-select-option')[config_db_fiddle.DB_ENGINE].click()
+            self.driver.find_elements_by_class_name('ember-power-select-option')[config.DB_ENGINE].click()
         except IndexError:
             print('\nInvalid sql engine selection, changing to mySQL8')
             self.driver.find_elements_by_class_name('ember-power-select-option')[0].click()
@@ -502,7 +503,7 @@ class WebHandler():
         end_url = None
         try:
             self.driver.switch_to_window(self.db_win)
-            if config_db_fiddle.SAVE_BEFORE_CLOSING:
+            if config.SAVE_BEFORE_CLOSING:
                 end_url = self.db_fiddle_save()
             else:
                 end_url = self.driver.current_url
@@ -519,7 +520,7 @@ class WebHandler():
 
         #a db fiddle has already been created
         if db_prev_url is not None and self.is_valid_save_url(db_prev_url):
-            if config_db_fiddle.CHECK_NEW_SAVE_VERSIONS:
+            if config.CHECK_NEW_SAVE_VERSIONS:
                 db_start_url = self.open_newest_fiddle_url(db_prev_url)
             else:
                 db_start_url = db_prev_url
