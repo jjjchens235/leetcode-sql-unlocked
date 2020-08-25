@@ -1,5 +1,6 @@
 import re
 import time
+import itertools
 from datetime import datetime
 
 from selenium.webdriver.support.ui import WebDriverWait
@@ -185,11 +186,23 @@ class WebHandler():
                     table_lines.append(matches)
             return table_lines
 
-        def is_table1(self, table_lines):
+        def get_table_type(self, table_lines):
             '''
             Table 1 are from newer questions where each line is sep by +---
+            Table 2 are ----|
+            Table 3 are like table 1, but they don't end with a 3rd +----
             '''
-            return '+' in table_lines[0][0]
+            cond1 = '+-' in table_lines[0][0]
+            table_lines_combined = list(itertools.chain.from_iterable(table_lines))
+            count = len([line for line in table_lines_combined if '+-' in line])
+            cond2 = count % 3 == 0
+            if cond1 and cond2:
+                return 'Table1'
+            elif not cond1:
+                return 'Table2'
+            elif cond1:
+                return 'Table3'
+
 
         def add_filler_col1(self, index, line, is_final=False):
             '''
@@ -218,6 +231,21 @@ class WebHandler():
             else:
                 concat = '   _   |'
             return line + concat
+
+        def add_filler_col3(self, index, line):
+            '''
+            DB-fiddle does not support text to DDL for tables with 1 column. This adds a filler column for type 2 tables
+            '''
+            if index == 0:
+                concat = '---------+'
+            elif index == 1:
+                concat = ' ignore  |'
+            elif index == 2:
+                concat = '---------+'
+            else:
+                concat = '  _      |'
+            return line + concat
+
 
         def update_date_format(self, line):
             '''
@@ -289,6 +317,27 @@ class WebHandler():
                 current_table = []
             return tables_text
 
+        def seperate_tables3(self, table_lines):
+            '''
+            Seperate each table of table type 3. Type 3 tables contain '+-' like type 1 tables, but they don't end with a '+-'. The only problem like this is 619
+            '''
+            tables_text, current_table = [], []
+            for table_line in table_lines:
+                is_single_col = False
+                if table_line[0].count('+') == 2:
+                    is_single_col = True
+                for line_i, line in enumerate(table_line):
+                    if line_i == 0:
+                        line = self.replace_invalid_char_header(line)
+                    if is_single_col:
+                        line = self.add_filler_col3(line_i, line)
+                    if line.count('/') >= 2:
+                        line = self.update_date_format(line)
+                    current_table.append(line)
+                tables_text.append('\n'.join(current_table))
+                current_table = []
+            return tables_text
+
         def remove_dups(self, l):
             '''
             remove dups from list while preserving order (Python 3.6+)
@@ -335,7 +384,7 @@ class WebHandler():
             invalid_names = ['null', 'DIAB1','B', 'delete']
             names_code = []
             for name in element_names:
-                if re.match(r'[a-zA-Z]+', name) and name not in invalid_names:
+                if re.match(r'[_a-zA-Z]+', name) and name not in invalid_names:
                     names_code.append(name)
             return names_code
 
@@ -421,6 +470,7 @@ class WebHandler():
             for parse_names in parse_name_funcs:
                 try:
                     names = parse_names(tables_pre)
+                #some of the functions take in an arg, some don't
                 except TypeError:
                     names = parse_names()
                 names = add_result_tbl_name(self.remove_dups(names))
@@ -437,11 +487,14 @@ class WebHandler():
             tables_pre = self.parse_table_pre()
             table_lines = self.parse_table_lines(tables_pre)
 
+            table_type = self.get_table_type(table_lines)
             #seperate tables based on type
-            if self.is_table1(table_lines):
+            if table_type == 'Table1':
                 tables_text = self.seperate_tables1(table_lines)
-            else:
+            elif table_type == 'Table2':
                 tables_text = self.seperate_tables2(table_lines)
+            elif table_type == 'Table3':
+                tables_text = self.seperate_tables3(table_lines)
 
             table_names = self.parse_table_names(tables_pre, len(tables_text))
             return table_names, tables_text
