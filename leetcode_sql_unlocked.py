@@ -149,7 +149,7 @@ def exit_option(q_num, web_handler, q_log, msg="Exiting program"):
     close_question(q_num, web_handler, q_log)
     return exit(web_handler, msg)
 
-def options(user_input, question_dir, q_log, web_handler):
+def options(user_input, question_dir, q_log, web_handler, help_menu):
     '''
     handles user input
     '''
@@ -209,12 +209,13 @@ def main():
         os.mkdir(LOG_DIR)
 
     logging.basicConfig(level=logging.ERROR, format='%(message)s', filename=os.path.join(LOG_DIR, ERROR_LOG))
-
     driver_path = os.path.join('drivers','chromedriver')
     web_handler = WebHandler(Driver.get_driver(driver_path))
     q_log = QuestionLog(os.path.join(LOG_DIR, Q_ELEMENTS_LOG), os.path.join(LOG_DIR, Q_STATE_LOG))
 
     if  not os.path.exists(q_log.q_elements_path) or is_stale_file(q_log.q_elements_path):
+        if is_stale_file(q_log.q_elements_path):
+            print('\nQuestion list have not been updated recently. Will update from LeetCode in case there are any new problems')
         q_elements = web_handler.get_question_elements()
         q_log.write_dict(q_log.q_elements_path, q_elements)
     else:
@@ -222,28 +223,30 @@ def main():
 
     q_dir = QuestionDirectory(q_elements, q_log.q_state['current'])
     help_menu = HelpMenu(q_dir.DEFAULT_NUM_TO_DISPLAY)
-    open_question(q_dir.get_current_num(), web_handler, q_log)
 
-    is_continue = True
-    tb = None
-    while is_continue:
-        user_input = clean_user_input(input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=q_dir.get_current().name)))
-        try:
-            is_continue = options(user_input, q_dir, q_log, web_handler)
-        except (NoSuchWindowException, WebDriverException):
-            tb = traceback.format_exc()
-            msg =  'Browser was already closed by user, exiting now'
-        except NoSuchElementException:
-            tb = traceback.format_exc()
-            msg = 'Web element not found, exiting now'
-        except:
-            tb = traceback.format_exc()
-            msg =  'Uncaught exc, check log, exiting now'
-        finally:
-            if tb:
-                now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
-                logging.exception(now + msg + '\n' + tb)
-                is_continue = exit(web_handler, msg)
+    try:
+        open_question(q_dir.get_current_num(), web_handler, q_log)
+        is_continue = True
+        tb = None
+
+        while is_continue:
+            user_input = clean_user_input(input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=q_dir.get_current().name)))
+            is_continue = options(user_input, q_dir, q_log, web_handler, help_menu)
+
+    except (NoSuchWindowException, WebDriverException):
+        tb = traceback.format_exc()
+        msg =  'Lost connection with browser, exiting now'
+    except NoSuchElementException:
+        tb = traceback.format_exc()
+        msg = 'Web element not found, exiting now'
+    except:
+        tb = traceback.format_exc()
+        msg =  'Uncaught exc, check logs/error.log, exiting now'
+    finally:
+        if tb:
+            now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
+            logging.exception(now + msg + '\n' + tb)
+            is_continue = exit(web_handler, msg)
 
 if __name__ == '__main__':
     main()
