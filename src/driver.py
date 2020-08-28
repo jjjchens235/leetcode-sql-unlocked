@@ -3,12 +3,11 @@ import platform
 from urllib.request import urlopen
 import ssl
 import zipfile
+import re
+
 from selenium import webdriver
 from selenium.webdriver.support.abstract_event_listener import AbstractEventListener
 from selenium.webdriver.support.event_firing_webdriver import EventFiringWebDriver
-import re
-
-
 
 class EventListener(AbstractEventListener):
     """Attempt to disable animations"""
@@ -20,11 +19,8 @@ class EventListener(AbstractEventListener):
         driver.execute_script(animation)
 
 class Driver:
-
     # Microsoft Edge user agents for additional points
     __WEB_USER_AGENT            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.48 Safari/537.36 Edg/74.1.96.24"
-    __MOBILE_USER_AGENT         = "Mozilla/5.0 (Windows Mobile 10; Android 8.0.0; Microsoft; Lumia 950XL) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Mobile Safari/537.36 Edge/80.0.361.62"
-
 
     def __download_driver(driver_path, system, driver_dl_index=1):
         # determine latest chromedriver version
@@ -71,7 +67,7 @@ class Driver:
         os.rmdir(extracted_dir)
         os.chmod(driver_path, 0o755)
 
-    def get_driver(path):
+    def get_driver(path, headless=False):
         system = platform.system()
         if system == "Windows":
             if not path.endswith(".exe"):
@@ -84,9 +80,12 @@ class Driver:
         options.add_argument("--window-size=1280,1024")
         options.add_argument("--log-level=3")
         options.add_experimental_option("prefs", {"profile.default_content_setting_values.geolocation" : 1}) # geolocation permission, 0=Ask, 1=Allow, 2=Deny
-        
+
         options.add_argument("user-agent=" + Driver.__WEB_USER_AGENT)
-        
+        if headless:
+            #for this program, headless should only be used for testing or to set-up all the db-fiddles before hand
+            options.add_argument("--headless")
+
         driver_dl_index = 2
         while True:
             try:

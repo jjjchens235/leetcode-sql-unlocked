@@ -20,7 +20,7 @@ class QuestionDirectory:
 
     def __init__(self, question_elements, curr_log_num):
         self.question_nodes = {}
-        self.current = self.create_q_nodes(question_elements, curr_log_num) 
+        self.current = self.create_q_nodes(question_elements, curr_log_num)
 
     def create_q_nodes(self, question_elements, curr_log_num):
         head = None
@@ -83,7 +83,7 @@ class QuestionDirectory:
         while curr.number != self.current.number:
             print('Current Question: ' + str(curr.number) +', Question Name: ' + curr.name + ', Level: ' + curr.level + ', Next Question: ' + str(curr.next.number) + ' , Next Same Level Question: ' + str(curr.next_same_lvl.number) + '\n')
             curr = curr.next
-            
+
     def get_current(self):
         return self.current
 
@@ -100,7 +100,7 @@ class QuestionDirectory:
             while curr.level != level:
                 curr = curr.next
             return curr
-        
+
     def select_next_question(self, level=None):
         '''
         Returns the next question based on current. Can also return next question by level
@@ -109,7 +109,7 @@ class QuestionDirectory:
 
     def is_q_exist(self, number):
        try:
-           self.question_nodes[number] 
+           self.question_nodes[number]
        except KeyError:
             return False
        return True
