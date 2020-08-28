@@ -169,7 +169,7 @@ class WebHandler():
             #use list() to make a copy so that removal of elements does not effect loop indexing
             for table_pre in list(tables_pre):
                 #remove data type tables
-                if 'Column Name' in table_pre or 'Type' in table_pre:
+                if 'Column Name' in table_pre or 'Column' in table_pre:
                     tables_pre.remove(table_pre)
             return tables_pre
 
@@ -181,7 +181,7 @@ class WebHandler():
             '''
             table_lines = []
             for table_pre in tables_pre:
-                matches = re.findall(r'\+--*.*\+|\|.*\|', table_pre)
+                matches = re.findall(r'\+--*.*[\+\|]|\|.*\|', table_pre)
                 if len(matches) > 0:
                     table_lines.append(matches)
             return table_lines
@@ -275,16 +275,16 @@ class WebHandler():
             is_single_col = False
             for table_line in table_lines:
                 for line in table_line:
+                    if line_i == 0:
+                        if line.count('+') == 2:
+                            is_single_col = True
                     #if header line
                     if line_i == 1:
                         line = self.replace_invalid_char_header(line)
-                    if line.count('+') == 2:
-                        is_single_col = True
                     if '+-' in line:
                         plus_ct += 1
                     if line.count('/') >= 2:
                         line = self.update_date_format(line)
-
                     if is_single_col:
                         line = self.add_filler_col1(line_i, line, plus_ct == 3)
                     current_table.append(line)
@@ -365,7 +365,7 @@ class WebHandler():
             table_pre = '\n'.join(tables_pre)
             try:
                 #capture words before first table
-                name_first_position = [re.match(r'(.*)\n\+-', table_pre).group(1)]
+                name_first_position = [re.match(r'([_a-zA-z]+).*\n\+-', table_pre).group(1)]
                 #capture words between 2 new lines, and next table
                 names_remaining_position = re.findall(r'\n\n(.*?)\n\+-', table_pre)
                 names_position = name_first_position + names_remaining_position
@@ -381,7 +381,7 @@ class WebHandler():
             '''
             elements = self.driver.find_elements_by_css_selector("code")
             element_names = self.remove_dups([element.text for element in elements])
-            invalid_names = ['null', 'DIAB1','B', 'delete']
+            invalid_names = ['null', 'DIAB1','B', 'delete', 'median']
             names_code = []
             for name in element_names:
                 if re.match(r'[_a-zA-Z]+', name) and name not in invalid_names:
@@ -432,6 +432,8 @@ class WebHandler():
             This will only be called when the number of table names parsed does not equal to the number of tables parsed
             '''
             print('names_args:' + str(names_args))
+            with open("unknown.txt",'a',encoding = 'utf-8') as f:
+               f.write(f'\nnames args: {names_args}')
             min_diff = float('inf')
             for names in names_args:
                 diff = abs(target_len - len(names))
@@ -463,6 +465,9 @@ class WebHandler():
                     names.append('Result')
                 return names
 
+            if target_len == 1:
+                with open("unknown.txt",'a',encoding = 'utf-8') as f:
+                   f.write(f'\ntarget_len only 1, tables_pre: {tables_pre}')
             #a list of each list of parsed names
             all_names = []
             parse_name_funcs = [self.parse_table_names_by_kword, self.parse_table_names_by_position, self.parse_table_names_by_code_tag, self.parse_table_names_by_bold]
