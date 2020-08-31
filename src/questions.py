@@ -12,7 +12,7 @@ class QuestionNode:
         self.next = next
         self.next_same_lvl = next_same_lvl
 
-class QuestionDirectory:
+class QuestionNodes:
     '''
     The questions are represented as a linked list type structure. The current node is saved in a log file, so the next question can be easily accessed. However, the user also has an option of selecting by question number, meaning there's potential of jumping many nodes across, so each question node can also be accessed by its number key.
     '''
@@ -133,7 +133,7 @@ class QuestionDirectory:
 
     def display_questions(self, level=None , n=None):
         if n is None:
-            n = QuestionDirectory.DEFAULT_NUM_TO_DISPLAY
+            n = self.DEFAULT_NUM_TO_DISPLAY
         q_names = [node.name for node in self.get_next_n_nodes(n, level)]
         print('\nDisplaying next {n}{level} questions:\n'.format(n=n, level= ' '+ level if level is not None else ''))
         pprint.pprint(q_names)
