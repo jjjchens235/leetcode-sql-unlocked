@@ -3,14 +3,26 @@ import time
 import itertools
 from datetime import datetime
 
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException, NoSuchWindowException, ElementNotSelectableException, ElementNotVisibleException
+from selenium.common.exceptions import NoSuchElementException, NoSuchWindowException, ElementNotSelectableException, ElementNotVisibleException, WebDriverException
 
 from src import config
 
 class WebHandler():
+    '''
+    Handles all selenium.webdriver actions including:
+
+    Getting question elements from leetcode.com.
+    All tab handling (opening, closing, switching, etc)
+        -Specifically, opening leetcode.jp, db-fiddle, and solution tab
+
+    Parses leetcode.jp in TableParser() sublclass for sql table data
+    Inputs sql data to db-fiddle.
+    '''
+
     __WAIT_LONG      = 7
     __WAIT_SHORT     = 2
 
@@ -28,7 +40,7 @@ class WebHandler():
         url = 'https://leetcode.com/problemset/database/?'
         win = self.open_new_win(url)
         try:
-            print('\nDownloading leetcode question elements')
+            print('\nGrabbing leetcode question elements from leetcode.com')
             #view all problems, not just first 50
             WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
             #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in js
@@ -46,7 +58,7 @@ class WebHandler():
             self.close_window(win)
             return question_elements
         except:
-            print('\n Could not find elements for SQL list from leetcode.com')
+            print('\n Could not find question elements from leetcode.com')
 
     def close_window(self, window):
         try:
@@ -75,7 +87,7 @@ class WebHandler():
 
     def reset_curr_window(self):
         try:
-            self.driver.switch_to_window(self.get_last_window())
+            self.driver.switch_to.window(self.get_last_window())
         except:
             pass
 
@@ -86,9 +98,14 @@ class WebHandler():
         '''
         # need to always reset to an active window before opening new window b/c if opening from an inactive window, a non such window exception is triggered
         self.reset_curr_window()
-        url = '\'' + url + '\''
-        script = "window.open({url})".format(url=url)
-        self.driver.execute_script(script)
+        js_url = '\'' + url + '\''
+        script = "window.open({js_url})".format(js_url=js_url)
+        try:
+            self.driver.execute_script(script)
+        #if js excecute_script doesn't work, open a new tab with ctr+t
+        except WebDriverException:
+            self.driver.find_element_by_tag_name('body').send_keys(Keys.CONTROL + 't')
+            self.driver.get(url)
         self.reset_curr_window()
         return self.get_last_window()
 
@@ -143,7 +160,6 @@ class WebHandler():
             base_url = 'https://www.google.com/search?q='
             search_term = '+'.join(question.name.split()) + '+leetcode+solution'
             self.driver.get(base_url+ search_term)
-
 
     def get_leetcode_url(self, q_num):
         return 'https://leetcode.jp/problemdetail.php?id={q_num}'.format(q_num=q_num)
@@ -202,7 +218,6 @@ class WebHandler():
                 return 'Table2'
             elif cond1:
                 return 'Table3'
-
 
         def add_filler_col1(self, index, line, is_final=False):
             '''
@@ -289,6 +304,7 @@ class WebHandler():
                         line = self.add_filler_col1(line_i, line, plus_ct == 3)
                     current_table.append(line)
                     line_i += 1
+                    #marks the end of the table
                     if plus_ct == 3:
                         tables_text.append('\n'.join(current_table))
                         current_table = []
@@ -488,7 +504,7 @@ class WebHandler():
             '''
             The main parsing function that combines everything together. The tables are always listed under the <pre> tag. Tables_pre includes alll this text. However, it also includes extraneous text. Table_lines removes the extraneous text. Lastly, each of the tables are seperated as an item
             '''
-            self.driver.switch_to_window(leet_win)
+            self.driver.switch_to.window(leet_win)
             tables_pre = self.parse_table_pre()
             table_lines = self.parse_table_lines(tables_pre)
 
@@ -508,17 +524,18 @@ class WebHandler():
         self.db_win = self.open_new_win(url)
 
     def db_fiddle_select_engine(self):
-        self.driver.switch_to_window(self.db_win)
+        self.driver.switch_to.window(self.db_win)
         WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'ember-power-select-status-icon'))).click()
         try:
             self.driver.find_elements_by_class_name('ember-power-select-option')[config.DB_ENGINE].click()
+        #if DB_ENGINE index is invalid, choose the first engine
         except IndexError:
             print('\nInvalid sql engine selection, changing to mySQL8')
             self.driver.find_elements_by_class_name('ember-power-select-option')[0].click()
 
     def click_query_table(self):
         try:
-            self.driver.switch_to_window(self.db_win)
+            self.driver.switch_to.window(self.db_win)
             #Code Mirror lines element must be activated, before textbox element can be sent keys
             code_mirror = WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="query"]/div[2]/div[6]/div[1]/div/div/div')))
             code_mirror.click()
@@ -526,14 +543,14 @@ class WebHandler():
             pass
 
     def db_fiddle_query_input(self, table_name):
-        self.driver.switch_to_window(self.db_win)
+        self.driver.switch_to.window(self.db_win)
         self.click_query_table()
         textbox = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.XPATH, '//*[@id="query"]/div[2]/div[1]/textarea')))
         query = 'SELECT * FROM {table_name}'.format(table_name=table_name)
         textbox.send_keys(query)
 
     def db_fiddle_table_input(self, table_name, table_text):
-        self.driver.switch_to_window(self.db_win)
+        self.driver.switch_to.window(self.db_win)
         fluent_wait = WebDriverWait(self.driver, self.__WAIT_SHORT, poll_frequency=.5, ignored_exceptions=[ElementNotVisibleException, ElementNotSelectableException])
         fluent_wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="schema"]/div[3]/button[1]'))).click()
         table_name_input = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.XPATH, "//div[@id='textToDDLModal']//*[starts-with(@class,'modal-body')]//*[starts-with(@id,'ember')]/input")))
@@ -545,7 +562,7 @@ class WebHandler():
         append_button.click()
 
     def db_fiddle_save(self):
-        self.driver.switch_to_window(self.db_win)
+        self.driver.switch_to.window(self.db_win)
         pre_url = self.driver.current_url
         try:
             WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="saveButton"]'))).click()
@@ -556,11 +573,13 @@ class WebHandler():
         return self.driver.current_url
 
     def close_question(self):
+        '''closes the question and returns the end_url for QuestionLog'''
+
         if len(self.driver.window_handles) == 0:
             raise NoSuchWindowException
         end_url = None
         try:
-            self.driver.switch_to_window(self.db_win)
+            self.driver.switch_to.window(self.db_win)
             if config.SAVE_BEFORE_CLOSING:
                 end_url = self.db_fiddle_save()
             else:
@@ -572,7 +591,7 @@ class WebHandler():
 
     def open_question(self, q_num, db_prev_url=None):
         '''
-        Opens the leetcode problem, and a db-fiddle of that problem
+        Opens the leetcode.jp problem, and a db-fiddle of that problem
         '''
         self.open_leetcode_win(q_num)
 
@@ -600,5 +619,5 @@ class WebHandler():
             self.db_fiddle_query_input(table_names[0])
             db_start_url = self.db_fiddle_save()
         self.click_query_table()
-        self.driver.switch_to_window(self.leet_win)
+        self.driver.switch_to.window(self.leet_win)
         return db_start_url

@@ -22,16 +22,13 @@ class QuestionLog:
 
     def __read_dict(self, path):
         if os.path.exists(path):
-            try:
-                file = open(path, "r")
-                return ast.literal_eval(file.read())
-            except:
-                pass
+            with open(path, "r") as f:
+                return ast.literal_eval(f.read())
         return None
 
     def write_dict(self, path, dict):
-        file=open(path, 'w')
-        pprint.pprint(dict, file)
+        with open(path, 'w') as f:
+            pprint.pprint(dict, f)
 
     def update_q_current(self, q_num):
         self.q_state['current'] = q_num

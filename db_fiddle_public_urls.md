@@ -242,4 +242,4 @@
 
 #1549: https://www.db-fiddle.com/f/shy1sSX8dyTwkK2hN9v5eN/0,
 
-#1555: https://www.db-fiddle.com/f/wyXumtXKgpXhFpJiq5tzhN/0}}
+#1555: https://www.db-fiddle.com/f/wyXumtXKgpXhFpJiq5tzhN/0

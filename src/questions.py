@@ -20,10 +20,11 @@ class QuestionNodes:
 
     def __init__(self, question_elements, curr_log_num):
         self.question_nodes = {}
+        self.head = None
+        self.tail = None
         self.current = self.create_q_nodes(question_elements, curr_log_num)
 
     def create_q_nodes(self, question_elements, curr_log_num):
-        head = None
         head_easy = None
         head_med = None
         head_hard = None
@@ -40,8 +41,8 @@ class QuestionNodes:
             if q_num == curr_log_num:
                 curr = q
 
-            if not head:
-                head = q
+            if not self.head:
+                self.head = q
 
             if prev_q:
                 prev_q.next = q
@@ -68,14 +69,15 @@ class QuestionNodes:
                     head_hard = q
                 prev_q_hard = q
 
-        q.next = head
+        self.tail = q
+        q.next = self.head
         prev_q_easy.next_same_lvl = head_easy
         prev_q_med.next_same_lvl = head_med
         prev_q_hard.next_same_lvl = head_hard
 
         #if for some reason, the current question in the log is an invalid question #, reset question to #176
         if not self.is_q_exist(curr_log_num):
-            curr = head.next
+            curr = self.head.next
         return curr
 
     def print_q_nodes(self):

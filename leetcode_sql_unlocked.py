@@ -1,3 +1,6 @@
+'''
+The main module that instantiates and controls the behavior and interaction of all objects, most notably objects from WebHandler, QuestionNodes, and QuestionLog.
+'''
 import os
 import re
 import time
@@ -53,11 +56,21 @@ class LeetcodeUnlocked():
         return WebHandler(Driver.get_driver(driver_path, headless))
 
     def get_question_nodes(self):
-        if  not os.path.exists(self.question_log.q_elements_path) or self.is_stale_file(self.question_log.q_elements_path):
-            if self.is_stale_file(self.question_log.q_elements_path):
+        '''
+        Returns a QuestionNodes object, a data structure created for optimal question access.
+        The QuestionNodes obj is created from question elements scraped from leetcode.
+        These elements are not scraped each time the program is run.
+        Rather, they are scraped if the elements don't exist, or
+        when the elements need to be updated after a certain time period
+        '''
+        #dl questions list from leetcode if elements dont exist or stale
+        if not os.path.exists(self.question_log.q_elements_path) or self.is_stale_file(self.question_log.q_elements_path):
+            #if path exists, it must be a stale question list
+            if os.path.exists(self.question_log.q_elements_path):
                 print('\nQuestion list have not been updated recently. Will update from LeetCode in case there are any new problems')
             q_elements = self.web_handler.get_question_elements()
             self.question_log.write_dict(self.question_log.q_elements_path, q_elements)
+        #don't re-download elements, read from q_elements log directly
         else:
             q_elements = self.question_log.q_elements
         return QuestionNodes(q_elements, self.question_log.q_state['current'])
@@ -70,7 +83,7 @@ class LeetcodeUnlocked():
         '''
         cleans invalid characters from user input
         '''
-        pattern = re.compile(r'[^\w\s]+')
+        pattern = re.compile(r'[^A-Za-z0-9\s]+')
         sub = re.sub(pattern, '', user_input)
         return ' '.join(sub.split()).lower()
 
@@ -156,6 +169,7 @@ class LeetcodeUnlocked():
         if matches:
             q_num = int(matches.group(1))
             if self.question_nodes.is_q_exist(q_num):
+                self.print_options('You chose question {q_num}'.format(q_num=q_num))
                 self.close_question()
                 self.question_nodes.select_question_by_number(q_num)
                 self.open_question()
@@ -194,7 +208,7 @@ class LeetcodeUnlocked():
     def solution_option(self):
         self.web_handler.open_solution_win(self.question_nodes.get_current())
 
-    def exit(self, msg):
+    def exit(self, msg="Exiting program"):
         self.web_handler.close_all()
         print(msg + '\n')
         return False
@@ -215,6 +229,7 @@ class LeetcodeUnlocked():
         valid_start_inputs = ['h', 'n', 'q', 's', 'd', 'e']
         try:
             start_input = user_input[0]
+        #empty user input
         except:
             self.print_options('Invalid input')
             return True

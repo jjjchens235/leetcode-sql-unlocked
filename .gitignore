@@ -1,9 +1,9 @@
-*test*
-logs/
+tests_private/
+*logs*
 drivers/
+*config.py
 *.swp
 *~
 .DS_STORE
 __pycache__/
 *.pyc
-*config.py

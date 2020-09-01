@@ -19,10 +19,10 @@ class EventListener(AbstractEventListener):
         driver.execute_script(animation)
 
 class Driver:
-    # Microsoft Edge user agents for additional points
-    __WEB_USER_AGENT            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.48 Safari/537.36 Edg/74.1.96.24"
+    #agent src: https://www.whatismybrowser.com/guides/the-latest-user-agent/edge
+    __WEB_USER_AGENT            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36 Edg/85.0.564.41"
 
-    def __download_driver(driver_path, system, driver_dl_index=1):
+    def __download_driver(driver_path, system, driver_dl_index=0):
         # determine latest chromedriver version
         #version selection faq: http://chromedriver.chromium.org/downloads/version-selection
         try:
@@ -30,7 +30,7 @@ class Driver:
         except ssl.SSLError as e:
             response = urlopen("https://sites.google.com/a/chromium.org/chromedriver/downloads").read()
         #download second latest version,most recent is sometimes not out to public yet
-        latest_version = re.findall(b"ChromeDriver \d+\.\d+\.\d+\.\d+",response)[driver_dl_index].decode().split()[1]
+        latest_version = re.findall(b"ChromeDriver \d{2,3}\.0\.\d{4}\.\d+",response)[driver_dl_index].decode().split()[1]
         print('\nDownloading chrome driver version: ' + latest_version)
 
         if system == "Windows":
@@ -86,16 +86,16 @@ class Driver:
             #for this program, headless should only be used for testing or to set-up all the db-fiddles before hand
             options.add_argument("--headless")
 
-        driver_dl_index = 2
+        driver_dl_index = 1
         while True:
             try:
-                driver = webdriver.Chrome(path, chrome_options=options)
+                driver = webdriver.Chrome(path, options=options)
                 break
-            #driver not up to date with Chrome browswer
+            #driver not up to date with Chrome browser, try different ver
             except:
                 Driver.__download_driver(path, system, driver_dl_index)
-            if driver_dl_index < 0:
-                print('Tried downloading the ' + str(driver_dl_index + 1) + ' most recent chrome drivers. None match current Chrome browser version')
-                break
-            driver_dl_index -= 1
+                driver_dl_index += 1
+                if driver_dl_index > 2:
+                    print(f'Tried downloading the {driver_dl_index} most recent chrome drivers. None match current Chrome browser version')
+                    break
         return EventFiringWebDriver(driver, EventListener())
