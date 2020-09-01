@@ -108,7 +108,7 @@ class LeetcodeUnlocked():
         except:
             start_url = None
         end_url = self.web_handler.close_question()
-        if start_url is not None and end_url not in [None, 'https://www.db-fiddle.com/']:
+        if end_url not in (None, 'https://www.db-fiddle.com/'):
             self.question_log.update_q_state(q_num, end_url)
 
     def open_question(self):
