@@ -41,8 +41,8 @@ The following db-fiddle settings can be optionally configured inside *leetcode_s
 ## Known Issues
 * Some problems don't have actual table data, for example problem #175, so no db-fiddle can be created.
 * DB-fiddle issue
- * Columns with only blank values are parsed as INTEGER in db-fiddle's text to DDL parser. However, this ends up throwing an error when the tables are actually queried on. This issue occurs for problem #586, a simple fix is switching from INTEGER to VARCHAR(1) in the table schema.
- * Columns with %Y-%m, i.e. '2017-05' are parsed as DATETIME when they should be parsed as VARCHAR inside db-fiddle's text to DDL. A simple fix is switching from DATETIME to VARCHAR(7) in the table schema. This issue occurs for #615.
+	* Columns with only blank values are parsed as INTEGER in db-fiddle's text to DDL parser. However, this ends up throwing an error when the tables are actually queried on. This issue occurs for problem #586, a simple fix is switching from INTEGER to VARCHAR(1) in the table schema.
+	* Columns with %Y-%m, i.e. '2017-05' are parsed as DATETIME when they should be parsed as VARCHAR inside db-fiddle's text to DDL. A simple fix is switching from DATETIME to VARCHAR(7) in the table schema. This issue occurs for #615.
 
 ## DB Fiddle url quick access
 For convenience, [this file](db_fiddle_public_urls.md) contains db-fiddle links for each LeetCode SQL problem. This might be useful if you want to to test your queries on just a few problems, you don't have Python, etc.
