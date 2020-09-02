@@ -224,6 +224,7 @@ class LeetcodeUnlocked():
         '''
         handles user input
         '''
+        user_input = self.clean_user_input(user_input)
         #if input is numbers only, this will be treated as question # arg
         is_num_only = re.match(r'[1-9]\d{2,3}$', user_input) is not None
         valid_start_inputs = ['h', 'n', 'q', 's', 'd', 'e']
@@ -269,7 +270,7 @@ class LeetcodeUnlocked():
             tb = None
 
             while is_continue:
-                user_input = self.clean_user_input(input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=self.question_nodes.get_current().name)))
+                user_input = input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=self.question_nodes.get_current().name))
                 is_continue = self.options(user_input)
 
         except (NoSuchWindowException, WebDriverException):
