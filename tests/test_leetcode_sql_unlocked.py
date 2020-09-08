@@ -14,6 +14,7 @@ import shutil
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.sys.path.insert(0, parent_dir)
 from leetcode_sql_unlocked import LeetcodeUnlocked
+from src.config import IS_PRE_LOAD_QUESTIONS
 
 def remove(path):
     """ param <path> could either be relative or absolute. """
@@ -53,9 +54,20 @@ class TestLeetcode(unittest.TestCase):
         if os.path.exists(curr_log_dir):
             move_to_archive(curr_log_dir, archive_log_dir)
             remove(curr_log_dir)
-        if os.path.exists(curr_driver_dir):
-            remove(curr_driver_dir)
-        self.lc = LeetcodeUnlocked(True)
+        #if os.path.exists(curr_driver_dir):
+            #remove(curr_driver_dir)
+        self.lc = LeetcodeUnlocked(False)
+
+    def join_threads(self):
+        '''
+        join only main thread, bg thread will be joined within setup_preload, this is to simulate the use case of this code
+        '''
+        self.lc.threads['current'].join()
+
+    def options(self, user_input):
+        self.lc.options(user_input)
+        if IS_PRE_LOAD_QUESTIONS:
+            self.join_threads()
 
     @classmethod
     def tearDownClass(self):
@@ -75,7 +87,9 @@ class TestLeetcode(unittest.TestCase):
             compar_num = q_log_current
         return q_nodes_current == q_log_current == compar_num
 
+    '''
     def test_stale_file(self):
+        print('\n\n Testing stale files!')
         f = self.lc.question_log.q_state_path
 
         is_stale = self.lc.is_stale_file(f, 0)
@@ -98,29 +112,29 @@ class TestLeetcode(unittest.TestCase):
         print('\n----------------Running invalid inputs-------')
         print('Should print only invalid inputs\n\n')
         user_input = 'ahcd'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = 'zef'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = '!!!!!!____'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = ''
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = '  '
-        self.lc.options(user_input)
+        self.options(user_input)
         time.sleep(3)
 
     def test_help_options(self):
         print('\n----------------Running help inputs-------')
         print('Should print help menu twice\n\n')
         user_input = '_help'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = 'he#'
-        self.lc.options(user_input)
+        self.options(user_input)
         time.sleep(3)
 
     def test_disp_options(self):
@@ -128,47 +142,49 @@ class TestLeetcode(unittest.TestCase):
         print('Should print different displays\n\n')
 
         user_input = 'dis$play'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = 'dg 5'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = 'de16'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = 'dmed 30'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = 'd hdf40'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = 'd h400'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         user_input = 'd e600'
-        self.lc.options(user_input)
+        self.options(user_input)
 
+    '''
     def test_q_option(self):
         self.assertTrue(self.is_q_match(176))
 
         url_dic = self.get_q_state()['url']
         user_input = '178'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(178))
         url1 = url_dic[178]
+        time.sleep(30)
 
         #test going to the same problem
         user_input = 'q178'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(178))
 
         user_input = 'que182'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(182))
 
         #test the url hasn't changed after 178->182->178
         user_input = 'qekekrj178'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(178))
         url2 = url_dic[178]
         self.assertEqual(url1, url2)
@@ -179,7 +195,7 @@ class TestLeetcode(unittest.TestCase):
 
         #175 can't generate fiddles, so a url should not be created
         user_input = '175'
-        self.lc.options(user_input)
+        self.options(user_input)
 
         #The question node will still go to 175, but quesiton log will not because there is no valid url built
         self.assertEqual(self.lc.question_nodes.get_current_num(), 175)
@@ -187,7 +203,7 @@ class TestLeetcode(unittest.TestCase):
         self.assertTrue(175 not in url_dic.keys())
 
         user_input = '^qs511'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(511))
 
     #def test_n_option(self):
@@ -198,59 +214,59 @@ class TestLeetcode(unittest.TestCase):
         url1 = url_dic[511]
 
         user_input = 'n'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(512))
 
         user_input = 'nh'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(569))
 
         user_input = 'q262'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(262))
 
         user_input = 'next'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(511))
         url2 = url_dic[511]
         self.assertEqual(url1, url2)
 
         #test with multiple args, shoudl fail
         user_input = 'n  ^  m h'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(511))
 
         #test with invalid arg, should fail
         user_input = 'n1'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(511))
 
         #test with invalid arg, should fail
         user_input = 'nf'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(511))
 
         # test same level using level arg
         user_input = 'n e  +'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(512))
 
         #tests that last question to first question works
         last_question_num = self.lc.question_nodes.tail.number
         user_input = f'q{last_question_num}'
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(last_question_num))
         #check first question number
         first_question_num = self.lc.question_nodes.head.number
         self.assertEqual(first_question_num, 175)
         user_input = 'n'
-        self.lc.options(user_input)
+        self.options(user_input)
         #The curent question node pointer will still go to 175, but question log will not because url is not valid
         self.assertEqual(self.lc.question_nodes.get_current_num(), 175)
 
         #this should evaluate to nm (next medium)
         user_input = ' )n!@#$$%^& *m ('
-        self.lc.options(user_input)
+        self.options(user_input)
         self.assertTrue(self.is_q_match(177))
 
 

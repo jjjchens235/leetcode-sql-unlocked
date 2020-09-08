@@ -40,3 +40,6 @@ class QuestionLog:
         self.update_q_current(q_num)
         self.update_q_url(q_num, url)
         self.write_dict(self.q_state_path, self.q_state)
+
+    def is_q_exist(self, q_num):
+        return q_num in self.q_state['url'].keys()

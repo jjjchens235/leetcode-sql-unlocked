@@ -40,7 +40,7 @@ class WebHandler():
         url = 'https://leetcode.com/problemset/database/?'
         win = self.open_new_win(url)
         try:
-            print('\nGrabbing leetcode question elements from leetcode.com')
+            print('\nObtaining leetcode question elements from leetcode.com')
             #view all problems, not just first 50
             WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
             #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in js

@@ -7,6 +7,7 @@ import time
 import logging
 import traceback
 from datetime import datetime
+from threading import Event
 
 from selenium.common.exceptions import NoSuchWindowException, NoSuchElementException, WebDriverException
 
@@ -15,6 +16,8 @@ from src.questions import QuestionNodes
 from src.driver import Driver
 from src.web_handler import WebHandler
 from src.log import QuestionLog
+from src.config import IS_PRE_LOAD_QUESTIONS, N_TO_PRELOAD, N_SAME_LEVEL_TO_PRELOAD
+from src.exc_thread import ExcThread
 
 class LeetcodeUnlocked():
     DRIVER_DIR = 'drivers'
@@ -32,6 +35,11 @@ class LeetcodeUnlocked():
         self.question_log = self.get_question_logger()
         self.question_nodes = self.get_question_nodes()
         self.help_menu = self.get_help_menu()
+
+        if IS_PRE_LOAD_QUESTIONS:
+            self.stop_event = Event()
+            self.threads = {'bg_child':None,'main_child':None}
+            self.bg_web_handler = self.get_web_handler(headless=True)
 
     def create_dirs(self):
         try:
@@ -100,19 +108,69 @@ class LeetcodeUnlocked():
         print('\n'+ expr+ '\n')
         time.sleep(sleep_time)
 
-    def close_question(self):
+    def join_bg_thread(self):
+        if self.threads['bg_child'] is not None and self.threads['bg_child'].is_alive():
+            print('\nWrapping up current question being pre-loaded')
+            self.threads['bg_child'].join()
+
+    def setup_preload(self):
+        if self.threads['bg_child'] is not None:
+            #tell preload thread to end
+            self.stop_event.set()
+            #wait for bg thread to wrap up the question it's currently on
+            self.join_bg_thread()
+        #preload thread can start over again when it is called since it the last thread has ended
+        self.stop_event.clear()
+
+    def open_preload(self, q_num):
+        print('inside open_preload() about to open a question in webhandler')
+        start_url = self.bg_web_handler.open_question(q_num)
+        #check that the question still doesn't exist in the log before writing just the url to it
+        if start_url is not None and not self.question_log.is_q_exist(q_num):
+            self.question_log.update_q_url(q_num, start_url)
+            self.question_log.write_dict(self.question_log.q_state_path, self.question_log.q_state)
+
+    def close_preload(self):
+        self.bg_web_handler.close_question()
+
+    def preload(self, n_next=1, n_next_same_lvl=0):
+        '''
+        Headless web handler in the background to create db-fiddles for pre-loading.
+        This will try to guarantee the next n questions are pre-loaded.
+        However, if the question's db-fiddle already exists, no need to pre-load.
+        Thread will be terminated if user goes to the next question before all n questions can be pre-loaded
+        '''
+
+        q_curr = self.question_nodes.get_current()
+        next_q_nums = [q.number for q in self.question_nodes.get_next_n_nodes(n_next)]
+        next_same_lvl_q_nums = [q.number for q in self.question_nodes.get_next_n_nodes(n_next_same_lvl, q_curr.level)]
+        question_nums = list(set(next_q_nums + next_same_lvl_q_nums))
+        #print(f'in preload, node(s) to be processed are {question_nums}')
+
+        for q_num in question_nums:
+            # if main thread is still running
+            #and question has never been created
+            if self.stop_event.is_set():
+                return
+            if not self.question_log.is_q_exist(q_num):
+                self.open_preload(q_num)
+                self.close_preload()
+
+    def close_current_question(self):
         q_num = self.question_nodes.get_current_num()
         try:
             start_url = self.question_log.q_state['url'][q_num]
-        #no valid url was created in open_questions()
+        #no valid url was created in open_new_questions()
         except:
             start_url = None
         end_url = self.web_handler.close_question()
         if end_url not in (None, 'https://www.db-fiddle.com/'):
             self.question_log.update_q_state(q_num, end_url)
 
-    def open_question(self):
-        q_num = self.question_nodes.get_current_num()
+    def open_new_question(self, q_num=None):
+        if q_num is None:
+            q_num = self.question_nodes.get_current_num()
+        #print(f'inside open_new_question, q_num is {q_num}')
         try:
             prev_save_url = self.question_log.q_state['url'][q_num]
         except KeyError:
@@ -123,6 +181,27 @@ class LeetcodeUnlocked():
         else:
             print('\n\nCAUTION: For question {}, not able to parse tables from leetcode.jp'.format(q_num))
 
+    def start_new_question(self, q_level=None, q_num=None):
+        if IS_PRE_LOAD_QUESTIONS:
+            self.setup_preload()
+
+        self.close_current_question()
+        #updates question current to the question the user chose
+        if q_num is not None:
+            self.question_nodes.select_question_by_number(q_num)
+        else:
+            self.question_nodes.select_next_question(q_level)
+
+        print(f'inside start_new_question(), current num is {self.question_nodes.get_current_num()}')
+        if IS_PRE_LOAD_QUESTIONS:
+            self.threads['main_child'] = ExcThread(target=self.open_new_question)
+            self.threads['bg_child'] = ExcThread(target=self.preload)
+            self.threads['main_child'].start()
+            self.threads['main_child'].join()
+            self.threads['bg_child'].start()
+        else:
+            self.open_new_question()
+
     def next_option(self, user_input):
         '''
         if user selects next
@@ -131,30 +210,28 @@ class LeetcodeUnlocked():
             user_input = ' '.join(user_input)
         user_inputs = user_input.split()
         if user_inputs[0] in ('n', 'next'):
-            level = None
-            #ignore level
+            q_level = None
+            #ignore q_level
             if len(user_inputs) == 1:
                 self.print_options("You chose next question")
-            #by level
+            #by q_level
             elif len(user_inputs) == 2:
                 user_level = user_inputs[1]
                 if user_level in ('e', 'easy'):
-                    level = 'easy'
+                    q_level = 'easy'
                 elif user_level in ('m', 'medium'):
-                    level = 'medium'
+                    q_level = 'medium'
                 elif user_level in ('h', 'hard'):
-                    level = 'hard'
+                    q_level = 'hard'
                 else:
                     self.print_options("Invalid next command!! Do you want to go to next question? Either use 'n' or try by level i.e. 'n e' for next easy, 'n m', 'n h'")
                     return
-                self.print_options("You chose next {level} question".format(level=level))
+                self.print_options("You chose next {q_level} question".format(q_level=q_level))
             else:
                 self.print_options("Invalid input!! Too many arguments for next command. Either use 'n' or try by level i.e. 'n e' for next easy, 'n m', 'n h'")
                 return
 
-            self.close_question()
-            self.question_nodes.select_next_question(level)
-            self.open_question()
+            self.start_new_question(q_level=q_level)
 
         #command starts with 'n', but not start with 'n' or 'next'
         else:
@@ -170,9 +247,7 @@ class LeetcodeUnlocked():
             q_num = int(matches.group(1))
             if self.question_nodes.is_q_exist(q_num):
                 self.print_options('You chose question {q_num}'.format(q_num=q_num))
-                self.close_question()
-                self.question_nodes.select_question_by_number(q_num)
-                self.open_question()
+                self.start_new_question(q_num=q_num)
             else:
                 self.print_options("Question number inputted is not on question list. Please enter valid question number, press 'd' to see list of questions",1.5)
         else:
@@ -210,6 +285,9 @@ class LeetcodeUnlocked():
 
     def exit(self, msg="Exiting program"):
         self.web_handler.close_all()
+        if IS_PRE_LOAD_QUESTIONS:
+            self.join_bg_thread()
+            self.bg_web_handler.close_all()
         print(msg + '\n')
         return False
 
@@ -217,8 +295,15 @@ class LeetcodeUnlocked():
         '''
         If the user inputs 'e' into console, we can save the state of the question to the log before closing everything
         '''
-        self.close_question()
+        self.close_current_question()
         return self.exit(msg)
+
+    def get_user_input(self):
+        user_input = input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=self.question_nodes.get_current().name))
+        return user_input
+
+    def load_option():
+        pass
 
     def options(self, user_input):
         '''
@@ -265,13 +350,13 @@ class LeetcodeUnlocked():
 
     def main(self):
         try:
-            self.open_question()
+            #self.open_new_question()
+            print(f'question node current num in main is: {self.question_nodes.get_current_num()}')
+            self.start_new_question(q_num=self.question_nodes.get_current_num())
             is_continue = True
             tb = None
-
             while is_continue:
-                user_input = input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=self.question_nodes.get_current().name))
-                is_continue = self.options(user_input)
+                is_continue = self.options(self.get_user_input())
 
         except (NoSuchWindowException, WebDriverException):
             tb = traceback.format_exc()
