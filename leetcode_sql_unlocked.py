@@ -30,16 +30,16 @@ class LeetcodeUnlocked():
 
     def __init__(self, headless=False):
         self.create_dirs()
-        self.start_error_logger()
+        logging.basicConfig(level=logging.ERROR, format='%(message)s', filename=os.path.join(self.LOG_DIR, self.ERROR_LOG))
+
         self.web_handler = self.get_web_handler(headless)
         self.question_log = self.get_question_logger()
         self.question_nodes = self.get_question_nodes()
         self.help_menu = self.get_help_menu()
+        self.is_pre_load_questions = IS_PRE_LOAD_QUESTIONS
 
-        if IS_PRE_LOAD_QUESTIONS:
-            self.stop_event = Event()
-            self.threads = {'bg_child':None,'main_child':None}
-            self.bg_web_handler = self.get_web_handler(headless=True)
+        if self.is_pre_load_questions:
+            self.turn_on_loading_helper()
 
     def create_dirs(self):
         try:
@@ -51,9 +51,6 @@ class LeetcodeUnlocked():
         #running from shell, no __file__ var
         except NameError:
             print('CAUTION: __file__ variable could not be determined so directory check could not be completed')
-
-    def start_error_logger(self):
-        logging.basicConfig(level=logging.ERROR, format='%(message)s', filename=os.path.join(self.LOG_DIR, self.ERROR_LOG))
 
     def get_question_logger(self):
         question_log = QuestionLog(os.path.join(self.LOG_DIR, self.Q_ELEMENTS_LOG), os.path.join(self.LOG_DIR, self.Q_STATE_LOG))
@@ -108,43 +105,65 @@ class LeetcodeUnlocked():
         print('\n'+ expr+ '\n')
         time.sleep(sleep_time)
 
-    def join_bg_thread(self):
-        if self.threads['bg_child'] is not None and self.threads['bg_child'].is_alive():
-            print('\nWrapping up current question being pre-loaded')
-            self.threads['bg_child'].join()
+    def join_preload_thread(self):
+        self.stop_event.set()
+        if self.preload_thread is not None:
+            if self.preload_thread.is_alive():
+                print('\nWrapping up current question being pre-loaded')
+            #always join even if thread is already over for possible exception info
+            self.preload_thread.join()
 
-    def setup_preload(self):
-        if self.threads['bg_child'] is not None:
+    def preload_setup(self):
+        if self.preload_thread is not None:
             #tell preload thread to end
-            self.stop_event.set()
-            #wait for bg thread to wrap up the question it's currently on
-            self.join_bg_thread()
+            #wait for preload thread to wrap up the question it's currently on
+            self.join_preload_thread()
         #preload thread can start over again when it is called since it the last thread has ended
         self.stop_event.clear()
 
-    def open_preload(self, q_num):
-        print('inside open_preload() about to open a question in webhandler')
-        start_url = self.bg_web_handler.open_question(q_num)
+    def preload_open_question(self, q_num):
+        start_url = self.preload_web_handler.open_question(q_num)
         #check that the question still doesn't exist in the log before writing just the url to it
         if start_url is not None and not self.question_log.is_q_exist(q_num):
             self.question_log.update_q_url(q_num, start_url)
             self.question_log.write_dict(self.question_log.q_state_path, self.question_log.q_state)
 
-    def close_preload(self):
-        self.bg_web_handler.close_question()
+    def preload_close_question(self):
+        self.preload_web_handler.close_question()
 
-    def preload(self, n_next=1, n_next_same_lvl=0):
+    def preload_delay(self, question_count):
+        '''
+        Based on number of questions to preload, delay processing the next pre-loaded question so as not to send too much traffic at one time to external website
+        '''
+
+        if question_count <= 5:
+            return
+        elif question_count <= 15:
+            delay = 20
+        elif question_count <= 40:
+            delay = 45
+        else:
+            delay = 75
+        self.stop_event.wait(delay)
+
+    def preload_question(self, q_num):
+        self.preload_open_question(q_num)
+        self.preload_close_question()
+
+    def preload(self, n_next, n_next_same_lvl):
         '''
         Headless web handler in the background to create db-fiddles for pre-loading.
         This will try to guarantee the next n questions are pre-loaded.
         However, if the question's db-fiddle already exists, no need to pre-load.
-        Thread will be terminated if user goes to the next question before all n questions can be pre-loaded
+        If user selects another question before all n questions can be pre-loaded, thread will be terminated after the current question being preloaded is finished
         '''
 
         q_curr = self.question_nodes.get_current()
         next_q_nums = [q.number for q in self.question_nodes.get_next_n_nodes(n_next)]
         next_same_lvl_q_nums = [q.number for q in self.question_nodes.get_next_n_nodes(n_next_same_lvl, q_curr.level)]
-        question_nums = list(set(next_q_nums + next_same_lvl_q_nums))
+        question_nums = sorted(set(next_q_nums + next_same_lvl_q_nums))
+        question_nums = [q_num for q_num in question_nums if not self.question_log.is_q_exist(q_num) and q_num != 175]
+        question_ct = len(question_nums)
         #print(f'in preload, node(s) to be processed are {question_nums}')
 
         for q_num in question_nums:
@@ -152,9 +171,10 @@ class LeetcodeUnlocked():
             #and question has never been created
             if self.stop_event.is_set():
                 return
-            if not self.question_log.is_q_exist(q_num):
-                self.open_preload(q_num)
-                self.close_preload()
+            self.preload_question(q_num)
+            self.preload_delay(question_ct)
+        if question_ct > 5:
+            print('Questions have finished being preloaded')
 
     def close_current_question(self):
         q_num = self.question_nodes.get_current_num()
@@ -181,9 +201,13 @@ class LeetcodeUnlocked():
         else:
             print('\n\nCAUTION: For question {}, not able to parse tables from leetcode.jp'.format(q_num))
 
+        if self.is_pre_load_questions:
+            self.preload_thread = ExcThread(target=self.preload, args=(N_TO_PRELOAD, N_SAME_LEVEL_TO_PRELOAD))
+            self.preload_thread.start()
+
     def start_new_question(self, q_level=None, q_num=None):
-        if IS_PRE_LOAD_QUESTIONS:
-            self.setup_preload()
+        if self.is_pre_load_questions:
+            self.preload_setup()
 
         self.close_current_question()
         #updates question current to the question the user chose
@@ -191,16 +215,7 @@ class LeetcodeUnlocked():
             self.question_nodes.select_question_by_number(q_num)
         else:
             self.question_nodes.select_next_question(q_level)
-
-        print(f'inside start_new_question(), current num is {self.question_nodes.get_current_num()}')
-        if IS_PRE_LOAD_QUESTIONS:
-            self.threads['main_child'] = ExcThread(target=self.open_new_question)
-            self.threads['bg_child'] = ExcThread(target=self.preload)
-            self.threads['main_child'].start()
-            self.threads['main_child'].join()
-            self.threads['bg_child'].start()
-        else:
-            self.open_new_question()
+        self.open_new_question()
 
     def next_option(self, user_input):
         '''
@@ -283,11 +298,39 @@ class LeetcodeUnlocked():
     def solution_option(self):
         self.web_handler.open_solution_win(self.question_nodes.get_current())
 
+    def turn_off_loading(self):
+        self.print_options('Turning OFF question loading for the duration of this program. For permanent changes, please adjust config file.')
+        if self.is_pre_load_questions:
+            self.join_preload_thread()
+            self.preload_web_handler.close_all()
+            self.is_pre_load_questions = False
+
+    def turn_on_loading_helper(self):
+        self.stop_event = Event()
+        self.preload_thread = None
+        self.preload_web_handler = self.get_web_handler(headless=True)
+
+    def turn_on_loading(self):
+        #possibilities, load has never been turned on
+        # load was previously off but was turned on at one point
+        #load was previously on
+        self.print_options('Turning ON question loading for the duration of this program. For permanent changes, please adjust config file.')
+        if not self.is_pre_load_questions:
+            self.is_pre_load_questions = True
+            self.turn_on_loading_helper()
+
+    def load_option(self, user_input):
+        if 'on' in user_input:
+            self.turn_on_loading()
+        elif 'off' in user_input:
+            self.turn_off_loading()
+        return True
+
     def exit(self, msg="Exiting program"):
         self.web_handler.close_all()
-        if IS_PRE_LOAD_QUESTIONS:
-            self.join_bg_thread()
-            self.bg_web_handler.close_all()
+        if self.is_pre_load_questions:
+            self.join_preload_thread()
+            self.preload_web_handler.close_all()
         print(msg + '\n')
         return False
 
@@ -302,9 +345,6 @@ class LeetcodeUnlocked():
         user_input = input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=self.question_nodes.get_current().name))
         return user_input
 
-    def load_option():
-        pass
-
     def options(self, user_input):
         '''
         handles user input
@@ -312,7 +352,7 @@ class LeetcodeUnlocked():
         user_input = self.clean_user_input(user_input)
         #if input is numbers only, this will be treated as question # arg
         is_num_only = re.match(r'[1-9]\d{2,3}$', user_input) is not None
-        valid_start_inputs = ['h', 'n', 'q', 's', 'd', 'e']
+        valid_start_inputs = ['h', 'n', 'q', 's', 'd', 'l', 'e']
         try:
             start_input = user_input[0]
         #empty user input
@@ -338,6 +378,11 @@ class LeetcodeUnlocked():
                 self.solution_option()
             elif start_input == 'd':
                 self.display_questions_option(user_input)
+            elif start_input == 'l':
+                if 'on' in user_input or 'off' in user_input:
+                    return self.load_option(user_input)
+                else:
+                    self.print_options('Invalid input')
             elif start_input == 'e':
                 if user_input in ('e', 'exit'):
                     return self.exit_option()
@@ -350,8 +395,6 @@ class LeetcodeUnlocked():
 
     def main(self):
         try:
-            #self.open_new_question()
-            print(f'question node current num in main is: {self.question_nodes.get_current_num()}')
             self.start_new_question(q_num=self.question_nodes.get_current_num())
             is_continue = True
             tb = None

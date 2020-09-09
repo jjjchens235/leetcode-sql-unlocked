@@ -25,6 +25,11 @@ __DB_OPTIONS = {'MYSQL_8': 0,
 DB_ENGINE = __DB_OPTIONS['MYSQL_8']
 SAVE_BEFORE_CLOSING = False
 CHECK_NEW_SAVE_VERSIONS = False
+
+#pre-loading settings
+is_pre_load_questions = True
+N_TO_PRELOAD = 1
+N_SAME_LEVEL_TO_PRELOAD = 1
 """
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))

@@ -14,7 +14,6 @@ import shutil
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.sys.path.insert(0, parent_dir)
 from leetcode_sql_unlocked import LeetcodeUnlocked
-from src.config import IS_PRE_LOAD_QUESTIONS
 
 def remove(path):
     """ param <path> could either be relative or absolute. """
@@ -54,29 +53,26 @@ class TestLeetcode(unittest.TestCase):
         if os.path.exists(curr_log_dir):
             move_to_archive(curr_log_dir, archive_log_dir)
             remove(curr_log_dir)
-        #if os.path.exists(curr_driver_dir):
-            #remove(curr_driver_dir)
+        if os.path.exists(curr_driver_dir):
+            remove(curr_driver_dir)
         self.lc = LeetcodeUnlocked(False)
-
-    def join_threads(self):
-        '''
-        join only main thread, bg thread will be joined within setup_preload, this is to simulate the use case of this code
-        '''
-        self.lc.threads['current'].join()
-
-    def options(self, user_input):
-        self.lc.options(user_input)
-        if IS_PRE_LOAD_QUESTIONS:
-            self.join_threads()
+        self.lc.options('loff')
 
     @classmethod
     def tearDownClass(self):
         self.lc.exit()
 
+    def options_with_join(self, user_input):
+        self.lc.options(user_input)
+        self.lc.preload_thread.join()
+
+    def options(self, user_input):
+        self.lc.options(user_input)
+
     def get_q_state(self):
         return self.lc.question_log.q_state
 
-    def is_q_match(self, compar_num=None):
+    def is_current_question_match(self, compar_num=None):
         '''
         Checks if question node current number and q log current number are the same
         Optionally, can compare a third expected number, compar_num
@@ -87,7 +83,10 @@ class TestLeetcode(unittest.TestCase):
             compar_num = q_log_current
         return q_nodes_current == q_log_current == compar_num
 
-    '''
+    def in_url_keys(self, match_nums):
+        url_nums = self.get_q_state()['url'].keys()
+        return all(i in url_nums for i in match_nums)
+
     def test_stale_file(self):
         print('\n\n Testing stale files!')
         f = self.lc.question_log.q_state_path
@@ -102,96 +101,36 @@ class TestLeetcode(unittest.TestCase):
         nodes = self.lc.question_nodes.question_nodes
         k = nodes.keys()
         self.assertTrue(len(k) > 120)
-        self.assertTrue(self.is_q_match())
-
-    def test_options(self):
-        pass
-
-    def test_invalid_options(self):
-
-        print('\n----------------Running invalid inputs-------')
-        print('Should print only invalid inputs\n\n')
-        user_input = 'ahcd'
-        self.options(user_input)
-
-        user_input = 'zef'
-        self.options(user_input)
-
-        user_input = '!!!!!!____'
-        self.options(user_input)
-
-        user_input = ''
-        self.options(user_input)
-
-        user_input = '  '
-        self.options(user_input)
-        time.sleep(3)
-
-    def test_help_options(self):
-        print('\n----------------Running help inputs-------')
-        print('Should print help menu twice\n\n')
-        user_input = '_help'
-        self.options(user_input)
-
-        user_input = 'he#'
-        self.options(user_input)
-        time.sleep(3)
-
-    def test_disp_options(self):
-        print('\n----------------Running display inputs-------')
-        print('Should print different displays\n\n')
-
-        user_input = 'dis$play'
-        self.options(user_input)
-
-        user_input = 'dg 5'
-        self.options(user_input)
-
-        user_input = 'de16'
-        self.options(user_input)
-
-        user_input = 'dmed 30'
-        self.options(user_input)
-
-        user_input = 'd hdf40'
-        self.options(user_input)
-
-        user_input = 'd h400'
-        self.options(user_input)
-
-        user_input = 'd e600'
-        self.options(user_input)
-
-    '''
+        self.assertTrue(self.is_current_question_match())
     def test_q_option(self):
-        self.assertTrue(self.is_q_match(176))
+        self.assertTrue(self.is_current_question_match(176))
 
         url_dic = self.get_q_state()['url']
         user_input = '178'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(178))
+        self.assertTrue(self.is_current_question_match(178))
         url1 = url_dic[178]
         time.sleep(30)
 
         #test going to the same problem
         user_input = 'q178'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(178))
+        self.assertTrue(self.is_current_question_match(178))
 
         user_input = 'que182'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(182))
+        self.assertTrue(self.is_current_question_match(182))
 
         #test the url hasn't changed after 178->182->178
         user_input = 'qekekrj178'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(178))
+        self.assertTrue(self.is_current_question_match(178))
         url2 = url_dic[178]
         self.assertEqual(url1, url2)
 
         #should not work
         user_input = '5110'
-        self.assertTrue(self.is_q_match(178))
+        self.assertTrue(self.is_current_question_match(178))
 
         #175 can't generate fiddles, so a url should not be created
         user_input = '175'
@@ -204,7 +143,7 @@ class TestLeetcode(unittest.TestCase):
 
         user_input = '^qs511'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(511))
+        self.assertTrue(self.is_current_question_match(511))
 
     #def test_n_option(self):
         """
@@ -215,47 +154,47 @@ class TestLeetcode(unittest.TestCase):
 
         user_input = 'n'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(512))
+        self.assertTrue(self.is_current_question_match(512))
 
         user_input = 'nh'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(569))
+        self.assertTrue(self.is_current_question_match(569))
 
         user_input = 'q262'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(262))
+        self.assertTrue(self.is_current_question_match(262))
 
         user_input = 'next'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(511))
+        self.assertTrue(self.is_current_question_match(511))
         url2 = url_dic[511]
         self.assertEqual(url1, url2)
 
         #test with multiple args, shoudl fail
         user_input = 'n  ^  m h'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(511))
+        self.assertTrue(self.is_current_question_match(511))
 
         #test with invalid arg, should fail
         user_input = 'n1'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(511))
+        self.assertTrue(self.is_current_question_match(511))
 
         #test with invalid arg, should fail
         user_input = 'nf'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(511))
+        self.assertTrue(self.is_current_question_match(511))
 
         # test same level using level arg
         user_input = 'n e  +'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(512))
+        self.assertTrue(self.is_current_question_match(512))
 
         #tests that last question to first question works
         last_question_num = self.lc.question_nodes.tail.number
         user_input = f'q{last_question_num}'
         self.options(user_input)
-        self.assertTrue(self.is_q_match(last_question_num))
+        self.assertTrue(self.is_current_question_match(last_question_num))
         #check first question number
         first_question_num = self.lc.question_nodes.head.number
         self.assertEqual(first_question_num, 175)
@@ -267,8 +206,74 @@ class TestLeetcode(unittest.TestCase):
         #this should evaluate to nm (next medium)
         user_input = ' )n!@#$$%^& *m ('
         self.options(user_input)
-        self.assertTrue(self.is_q_match(177))
+        self.assertTrue(self.is_current_question_match(177))
 
+        #------- Preloading  testing ---------
+        self.options('load on')
+
+        #check that both preload questions were loaded, and that current still points to 512
+        user_input = '512'
+        self.options_with_join(user_input)
+        q_num = int(user_input)
+        self.assertTrue(self.in_url_keys([q_num, 534, 577]))
+        self.assertTrue(self.is_current_question_match(q_num))
+
+        #while preload originally includes both 578 and 584, when turning load off, only the current preloaded question (578) should be finished
+        user_input = '577'
+        self.options(user_input)
+        q_num = int(user_input)
+        self.assertTrue(self.is_current_question_match(q_num))
+        self.options('load off')
+        self.assertTrue(self.in_url_keys([q_num, 578]))
+        self.assertFalse(self.in_url_keys([584]))
+
+        #Check that after turning load off, that after user goes to 578, nothing is loaded in the background
+        url_keys = self.get_q_state()['url'].keys()
+        len1 = len(url_keys)
+        user_input = '578'
+        self.options(user_input)
+        q_num = int(user_input)
+        self.assertTrue(self.is_current_question_match(q_num))
+        len2 = len(url_keys)
+        self.assertTrue(len1 == len2)
+
+        #Check that after going to 579, url dictionary only increaed by one, similiar to the check above
+        user_input = '579'
+        self.options(user_input)
+        q_num = int(user_input)
+        self.assertTrue(self.is_current_question_match(q_num))
+        len3 = len(url_keys)
+        self.assertTrue(len1 == len3-1)
+
+        #turn load back on, go to 586, testing if preload is only 1 problem since it happens to be both the next problem, and the next level problem
+        self.options('load on')
+        user_input = '586'
+        self.options_with_join(user_input)
+        q_num = int(user_input)
+        self.assertTrue(self.is_current_question_match(q_num))
+        self.assertTrue(self.in_url_keys([q_num, 595]))
+        #dictionary size should increase by 2, for the new current problem, and the one preloaded problem
+        self.assertTrue(len(url_keys) == len3+2)
+
+        #turn load off to setup a bigger preload
+        self.options('load off')
+        user_input = '601'
+        self.options_with_join(user_input)
+
+        #preload 3 next, and 3 next same level problems
+        self.options('load on')
+        self.lc.preload(3, 3)
+        #the preloaded problems should match these 6 hardcoded ones
+        self.assertTrue(self.in_url_keys([602, 603, 607, 615, 618, 1097]))
+        q_num = int(user_input)
+        self.assertTrue(self.is_current_question_match(q_num))
+
+        #make sure regular loading, and preloading are working fine after running preload on its own
+        user_input = '1097'
+        self.options_with_join(user_input)
+        self.assertTrue(self.in_url_keys([1097, 1098, 1127]))
+        q_num = int(user_input)
+        self.assertTrue(self.is_current_question_match(q_num))
 
 if __name__ == '__main__':
     unittest.main()

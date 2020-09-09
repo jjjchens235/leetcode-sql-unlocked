@@ -17,6 +17,7 @@ class HelpMenu:
         parser.add_argument("(q)uestion NUMBER", help="Select problem by question number i.e. 'q 183' or 'question 183' or simply '183' ")
         parser.add_argument("(s)olution", help='Open solution of current problem in new chrome tab')
         parser.add_argument("(d)isplay [LEVEL] [# TO DISPLAY]", help="Displays list of problems. Optionally, can display by level [(e)asy, (m)edium, (h)ard]. Optionally, can also choose how many problems to display, default is {default1}. Ex: 'd' is to display next {default2} problems of all levels, 'd e 30' is to display the next 30 easy problems.".format(default1=default_num_to_display, default2=default_num_to_display))
+        parser.add_argument("(l)oad ON/OFF", help="Pre-load additional questions in the background for faster future question access. Ex: 'l on' is to turn load on, and 'l off' is to turn load off")
         parser.add_argument("(e)xit", help='Exit program')
         self.parser = parser
 

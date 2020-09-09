@@ -447,9 +447,6 @@ class WebHandler():
             Returns the names list that has a length closest to the number of tables parsed
             This will only be called when the number of table names parsed does not equal to the number of tables parsed
             '''
-            print('names_args:' + str(names_args))
-            with open("unknown.txt",'a',encoding = 'utf-8') as f:
-               f.write(f'\nnames args: {names_args}')
             min_diff = float('inf')
             for names in names_args:
                 diff = abs(target_len - len(names))
