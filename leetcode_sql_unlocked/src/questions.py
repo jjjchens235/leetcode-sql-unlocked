@@ -19,10 +19,10 @@ class QuestionNodes:
     DEFAULT_NUM_TO_DISPLAY = 15
 
     def __init__(self, question_elements, curr_log_num):
-        self.question_nodes = {}
+        self.__question_nodes = {}
         self.head = None
         self.tail = None
-        self.current = self.create_q_nodes(question_elements, curr_log_num)
+        self.__current = self.create_q_nodes(question_elements, curr_log_num)
 
     def create_q_nodes(self, question_elements, curr_log_num):
         head_easy = None
@@ -37,7 +37,7 @@ class QuestionNodes:
             name = question_elements[q_num]['name']
             level = question_elements[q_num]['level']
             q = QuestionNode(q_num, name, level)
-            self.question_nodes[q_num] = q
+            self.__question_nodes[q_num] = q
             if q_num == curr_log_num:
                 curr = q
 
@@ -81,16 +81,16 @@ class QuestionNodes:
         return curr
 
     def print_q_nodes(self):
-        curr = self.current
-        while curr.number != self.current.number:
+        curr = self.__current
+        while curr.number != self.__current.number:
             print('Current Question: ' + str(curr.number) +', Question Name: ' + curr.name + ', Level: ' + curr.level + ', Next Question: ' + str(curr.next.number) + ' , Next Same Level Question: ' + str(curr.next_same_lvl.number) + '\n')
             curr = curr.next
 
     def get_current(self):
-        return self.current
+        return self.__current
 
     def get_current_num(self):
-        return self.current.number
+        return self.__current.number
 
     def get_next_node(self, node, level=None):
         if level is None:
@@ -107,21 +107,21 @@ class QuestionNodes:
         '''
         Returns the next question based on current. Can also return next question by level
         '''
-        self.current = self.get_next_node(self.current, level)
+        self.__current = self.get_next_node(self.__current, level)
 
     def is_q_exist(self, number):
        try:
-           self.question_nodes[number]
+           self.__question_nodes[number]
        except KeyError:
             return False
        return True
 
     def select_question_by_number(self, number):
-        self.current = self.question_nodes[number]
+        self.__current = self.__question_nodes[number]
 
     def get_next_n_nodes(self, n, level=None):
         nodes = []
-        curr = self.current
+        curr = self.__current
         head = None
         for i in range(n):
             curr = self.get_next_node(curr, level)

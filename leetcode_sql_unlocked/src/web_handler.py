@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, NoSuchWindowException, ElementNotSelectableException, ElementNotVisibleException, WebDriverException
 
-from src import config
+from .driver import Driver
 
 class WebHandler():
     '''
@@ -26,8 +26,8 @@ class WebHandler():
     __WAIT_LONG      = 7
     __WAIT_SHORT     = 2
 
-    def __init__(self, driver):
-        self.driver = driver
+    def __init__(self, driver_path, headless):
+        self.driver = Driver.get_driver(driver_path, headless=headless)
         #references to each question tab in webdriver
         self.leet_win = None
         self.db_win = None
@@ -520,11 +520,11 @@ class WebHandler():
     def open_db_win(self, url='https://www.db-fiddle.com/'):
         self.db_win = self.open_new_win(url)
 
-    def db_fiddle_select_engine(self):
+    def db_fiddle_select_engine(self, db_engine):
         self.driver.switch_to.window(self.db_win)
         WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.CLASS_NAME, 'ember-power-select-status-icon'))).click()
         try:
-            self.driver.find_elements_by_class_name('ember-power-select-option')[config.DB_ENGINE].click()
+            self.driver.find_elements_by_class_name('ember-power-select-option')[db_engine].click()
         #if DB_ENGINE index is invalid, choose the first engine
         except IndexError:
             print('\nInvalid sql engine selection, changing to mySQL8')
@@ -569,7 +569,7 @@ class WebHandler():
         WebDriverWait(self.driver, self.__WAIT_LONG).until_not(EC.url_to_be(pre_url))
         return self.driver.current_url
 
-    def close_question(self):
+    def close_question(self, is_save_before_closing):
         '''closes the question and returns the end_url for QuestionLog'''
 
         if len(self.driver.window_handles) == 0:
@@ -577,7 +577,7 @@ class WebHandler():
         end_url = None
         try:
             self.driver.switch_to.window(self.db_win)
-            if config.SAVE_BEFORE_CLOSING:
+            if is_save_before_closing:
                 end_url = self.db_fiddle_save()
             else:
                 end_url = self.driver.current_url
@@ -586,7 +586,7 @@ class WebHandler():
         self.close_question_windows()
         return end_url
 
-    def open_question(self, q_num, db_prev_url=None):
+    def open_question(self, q_num, db_engine, is_check_new_save_versions, db_prev_url=None):
         '''
         Opens the leetcode.jp problem, and a db-fiddle of that problem
         '''
@@ -594,7 +594,7 @@ class WebHandler():
 
         #a db fiddle has already been created
         if db_prev_url is not None and self.is_valid_save_url(db_prev_url):
-            if config.CHECK_NEW_SAVE_VERSIONS:
+            if is_check_new_save_versions:
                 db_start_url = self.open_newest_fiddle_url(db_prev_url)
             else:
                 db_start_url = db_prev_url
@@ -603,7 +603,7 @@ class WebHandler():
         #no db-fiddle has been created yet
         else:
             self.open_db_win()
-            self.db_fiddle_select_engine()
+            self.db_fiddle_select_engine(db_engine)
             try:
                 #parse the sql tables from leetcode.jp
                 table_names, tables_text = self.TableParser(self.driver).parse_leetcode_tables(self.leet_win)

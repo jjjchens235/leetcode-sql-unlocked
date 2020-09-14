@@ -10,9 +10,11 @@ import unittest
 import time
 import os
 
+
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-os.sys.path.insert(0, parent_dir)
-from leetcode_sql_unlocked import LeetcodeUnlocked
+sister_dir = os.path.join(parent_dir, 'leetcode_sql_unlocked/')
+os.sys.path.insert(0, sister_dir)
+import leetcode_sql_unlocked
 
 class TestLeetcodeOptions(unittest.TestCase):
 
@@ -22,8 +24,9 @@ class TestLeetcodeOptions(unittest.TestCase):
         Tests leetcode_sql_unlocked.py, starting from scratch with no previous logs and drivers
         WARNING: deletes driver, and moves all logs to a folder called logs_archive
         '''
-        os.chdir(parent_dir)
-        self.lc = LeetcodeUnlocked(headless=True)
+        #os.chdir(parent_dir)
+        #self.lc = LeetcodeUnlocked(headless=True)
+        self.lc = leetcode_sql_unlocked.get_leetcode()
 
     @classmethod
     def options(self, user_input):
@@ -31,7 +34,7 @@ class TestLeetcodeOptions(unittest.TestCase):
 
     @classmethod
     def tearDownClass(self):
-        self.lc.exit()
+        self.lc.exit_option()
 
     def test_invalid_options(self):
 
@@ -108,13 +111,10 @@ class TestLeetcodeOptions(unittest.TestCase):
         b = datetime.now()
         self.assertTrue((b-a).total_seconds() <= 3)
 
-        self.options('load off')
-        self.assertTrue(self.lc.stop_event._flag)
         a = datetime.now()
         self.lc.preload_delay(100)
         b = datetime.now()
-        self.assertTrue((b-a).total_seconds() <= 3)
-        self.options('load on')
+        self.assertTrue((b-a).total_seconds() >= 30)
 
 if __name__ == '__main__':
     unittest.main()

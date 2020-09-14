@@ -1,5 +1,5 @@
 tests_private/
-**logs*/
+**/logs*/
 **/drivers/
 *config.py
 *.swp

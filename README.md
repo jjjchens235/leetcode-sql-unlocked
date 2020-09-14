@@ -1,4 +1,4 @@
-Through the command line, the user can easily access all ~125 LeetCode SQL/Database questions, even locked ones, and automatically generate the tables in db-fiddle.com, a SQL database playground environment.
+Through the command line, the user can easily access all ~125 LeetCode SQL/Database questions, even locked ones!! and automatically generate the tables in db-fiddle.com, a SQL database playground environment.
 
 
 ![GIF demo](img/demo2.gif)
@@ -27,6 +27,8 @@ Through the command line, the user can easily access all ~125 LeetCode SQL/Datab
 
 `(d)isplay [LEVEL] [# TO DISPLAY]`: Displays list of problems. Optionally, can display by level [(e)asy, (m)edium, (h)ard]. Furthermore, can optionally choose how many problems to display, default is 15. Ex: 'd' is to display next 15 problems of all levels, 'd e 30' is to display the next 30 easy problems.
 
+`(l)oad ON/OFF`: Pre-load additional questions in the background for faster future question access. Ex: 'l on' is to turn load on, and 'l off' is to turn load off"
+
 `(e)xit`: Exit Program
 
 ## Config
@@ -37,6 +39,19 @@ The following db-fiddle settings can be optionally configured inside *leetcode_s
 `SAVE_BEFORE_CLOSING`: If `True`, before going to the next question or exiting, will save the current fiddle automatically. Note that the fiddle is always saved when first created- this setting is for all proceeding saves. Default is `False`, meaning the user must manually click save if they want the changes they made to persist beyond the current session.
 
 `CHECK_NEW_SAVE_VERSIONS`: If `True`, will check for any newer versions of the db-fiddle. Default is `False`. This setting should only be switched to True if user is planning to make changes to their db-fiddles outside of this program.
+
+#### Preloading Config
+ Preloading refers to creating additional db-fiddles in a background web handler. The advantage of this is that when a question is actually selected, it does not need to be created, as it was already created in the background, allowing for questions to be loaded faster.
+The disadvantage of preloading is that an additional process is being run in the background, taking up more system resources. Additionally, if the user selects another question before all questions have finished preloading, there will be a small delay before the selected question is opened because the question currently being preloaded will need to be finished first.
+
+The preloading settings can also configured inside *leetcode_sql_unlocked/src/config.py*:
+
+`IS_PRELOAD`: If `True`, preloading will be turned on and if `False` it will be turned off. This can be toggled within the program itself by using 'l on' and 'l off'. True by default
+`N_TO_PRELOAD`: For each question selected, the number of succeeding questions to preload in the background. The default is `1`. 
+`N_SAME_LEVEL_TO_PRELOAD`: For each question selected, the number of succeeding questions of the SAME LEVEL to preload in the background. The default is `1`.
+
+Ultimately, preloading should be useful for most users who plan on navigating the problems by using the 'next' command rather than jumping by question number. A possible work-flow would be setting `N_TO_PRELOAD=5` and `N_SAME_LEVEL_TO_PRELOAD=0` or vice versa if user is planning on navigating by next level. After the user has selected 2 questions, ~9 problems should be preloaded already and the user can turn off preloading for the duration of their session (by inputting 'l off' in the prompt).
+
 
 ## Known Issues
 * Some problems don't have actual table data, for example problem #175, so no db-fiddle can be created.

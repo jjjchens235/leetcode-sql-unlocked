@@ -12,8 +12,9 @@ import os
 import shutil
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-os.sys.path.insert(0, parent_dir)
-from leetcode_sql_unlocked import LeetcodeUnlocked
+sister_dir = os.path.join(parent_dir, 'leetcode_sql_unlocked/')
+os.sys.path.insert(0, sister_dir)
+import leetcode_sql_unlocked
 
 def remove(path):
     """ param <path> could either be relative or absolute. """
@@ -46,25 +47,25 @@ class TestLeetcode(unittest.TestCase):
         Tests leetcode_sql_unlocked.py, starting from scratch with no previous logs and drivers
         WARNING: deletes driver, and moves all logs to a folder called logs_archive
         '''
-        os.chdir(parent_dir)
-        curr_log_dir = os.path.join(os.getcwd(), 'logs')
-        curr_driver_dir = os.path.join(os.getcwd(), 'drivers')
-        archive_log_dir = os.path.join(os.getcwd(), 'logs_archive')
+        #os.chdir(sister_dir)
+        curr_log_dir = os.path.join(sister_dir, 'logs')
+        curr_driver_dir = os.path.join(sister_dir, 'drivers')
+        archive_log_dir = os.path.join(sister_dir, 'logs_archive')
         if os.path.exists(curr_log_dir):
             move_to_archive(curr_log_dir, archive_log_dir)
             remove(curr_log_dir)
         if os.path.exists(curr_driver_dir):
             remove(curr_driver_dir)
-        self.lc = LeetcodeUnlocked(False)
+        self.lc = leetcode_sql_unlocked.get_leetcode(headless=False)
         self.lc.options('loff')
 
     @classmethod
     def tearDownClass(self):
-        self.lc.exit()
+        self.lc.exit_option()
 
     def options_with_join(self, user_input):
         self.lc.options(user_input)
-        self.lc.preload_thread.join()
+        self.lc.preloader.thread.join()
 
     def options(self, user_input):
         self.lc.options(user_input)
@@ -87,21 +88,25 @@ class TestLeetcode(unittest.TestCase):
         url_nums = self.get_q_state()['url'].keys()
         return all(i in url_nums for i in match_nums)
 
+    '''
     def test_stale_file(self):
         print('\n\n Testing stale files!')
         f = self.lc.question_log.q_state_path
 
-        is_stale = self.lc.is_stale_file(f, 0)
+        is_stale = self.lc.is_stale_elements(f, 0)
         self.assertFalse(is_stale)
 
-        is_stale = self.lc.is_stale_file(f, -1)
+        is_stale = self.lc.is_stale_elements(f, -1)
         self.assertTrue(is_stale)
+    '''
 
     def test_q_nodes(self):
-        nodes = self.lc.question_nodes.question_nodes
+        #nodes = self.lc.question_nodes.question_nodes
+        nodes = self.lc.question_nodes._QuestionNodes__question_nodes
         k = nodes.keys()
         self.assertTrue(len(k) > 120)
         self.assertTrue(self.is_current_question_match())
+
     def test_q_option(self):
         self.assertTrue(self.is_current_question_match(176))
 

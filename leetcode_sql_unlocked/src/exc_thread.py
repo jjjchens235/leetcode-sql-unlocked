@@ -1,4 +1,4 @@
-from threading import Thread
+from threading import Thread, Event
 
 class ExcThread(Thread):
 
@@ -18,9 +18,18 @@ class ExcThread(Thread):
 
     def join(self):
         super().join()
-
         if self.exc:
             msg = "Thread '%s' threw an exception: %s" % (self.getName(), self.exc[1])
             new_exc = Exception(msg)
             raise new_exc.with_traceback(self.exc[2])
 
+    """
+    def is_started(self):
+        '''
+        A thread is started if the thread has called start() already.
+        This matters because once start() is called a thread can't call it
+        again.
+        Furthermore, join() can only be called once it has been started
+        '''
+        return self._started.is_set()
+    """

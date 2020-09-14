@@ -6,7 +6,7 @@ if version < (3, 6, 0):
   sys.exit( 'Requires Python >= 3.6.0; '
             'your version of Python is ' + sys.version )
 
-CONFIG_FILE_PATH = 'src/config.py'
+CONFIG_FILE_PATH = 'leetcode_sql_unlocked/src/config.py'
 CONFIG_FILE_TEMPLATE = """
 '''
 The following db-fiddle settings can be optionally configured inside leetcode_sql_unlocked/src/config.py:
@@ -18,18 +18,21 @@ SAVE_BEFORE_CLOSING: If True, before going to the next question or exiting, will
 CHECK_NEW_SAVE_VERSIONS: If True, will check for any newer versions of the db-fiddle. Default is False. This setting should only be switched to True if user is planning to make changes to their db-fiddles outside of this program.
 '''
 
-__DB_OPTIONS = {'MYSQL_8': 0,
-'POSTGRES_12': 5,
-'SQLITE_3_3': 11}
+mysql = 'MYSQL_8.0'
+postgres = 'POSTGRES_12'
+sqlite = 'SQLITE_3_3'
+__DB_OPTIONS = {mysql: 0,
+postgres: 5,
+sqlite: 11}
 
-DB_ENGINE = __DB_OPTIONS['MYSQL_8']
-SAVE_BEFORE_CLOSING = False
-CHECK_NEW_SAVE_VERSIONS = False
-
-#pre-loading settings
-is_pre_load_questions = True
-N_TO_PRELOAD = 1
-N_SAME_LEVEL_TO_PRELOAD = 1
+cfg = dict(
+    db_engine = __DB_OPTIONS[mysql],
+    is_save_before_closing = False,
+    is_check_new_save_versions = False,
+    is_preload = True,
+    n_to_preload = 1,
+    n_same_level_to_preload = 1
+)
 """
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
