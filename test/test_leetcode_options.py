@@ -104,7 +104,7 @@ class TestLeetcodeOptions(unittest.TestCase):
         a = datetime.now()
         self.lc.preload_delay(10)
         b = datetime.now()
-        self.assertTrue((b-a).total_seconds() >= 15)
+        self.assertTrue((b-a).total_seconds() >= 8)
 
         a = datetime.now()
         self.lc.preload_delay(5)

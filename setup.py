@@ -29,6 +29,7 @@ cfg = dict(
     db_engine = __DB_OPTIONS[mysql],
     is_save_before_closing = False,
     is_check_new_save_versions = False,
+    is_fork_public_url = True,
     is_preload = True,
     n_to_preload = 1,
     n_same_level_to_preload = 1
@@ -44,4 +45,4 @@ else:
 
 with open(CONFIG_FILE_PATH, "w") as config_file:
     config_file.write(CONFIG_FILE_TEMPLATE)
-    print("Config {} successfully in path {}".format(status, os.path.join(os.getcwd(), CONFIG_FILE_PATH)))
+    print("Config {} successfully in path:\n{}".format(status, os.path.join(os.getcwd(), CONFIG_FILE_PATH)))

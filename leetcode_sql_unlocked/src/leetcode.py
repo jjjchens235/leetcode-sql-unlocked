@@ -17,11 +17,11 @@ from .exc_thread import ExcThread
 
 class Leetcode():
 
-    def __init__(self, driver_path, q_elements_path, q_state_path, headless=False):
+    def __init__(self, driver_path, q_elements_path, q_state_path, q_public_urls_path, headless=False):
         self.cfg = cfg
         self.driver_path = driver_path
         self.web_handler = WebHandler(self.driver_path, headless)
-        self.question_log = QuestionLog(q_elements_path, q_state_path)
+        self.question_log = QuestionLog(q_elements_path, q_state_path, q_public_urls_path)
 
         def is_stale_elements(elements_path, days_till_stale=13):
             mtime = os.path.getmtime(elements_path)
@@ -77,15 +77,19 @@ class Leetcode():
         if question_index <= 5:
             return
         elif question_index <= 15:
-            delay = 20
+            delay = 10
         elif question_index <= 40:
-            delay = 45
+            delay = 30
         else:
-            delay = 75
+            delay = 45
         self.preloader.stop_event.wait(delay)
 
     def preload_open_question(self, q_num):
-        start_url = self.preloader.web_handler.open_question(q_num, self.cfg['db_engine'], self.cfg['is_check_new_save_versions'])
+        if self.check_is_forkable(q_num):
+            public_url = self.question_log.q_public_urls[q_num]
+            start_url = self.preloader.web_handler.open_fork(q_num, public_url)
+        else:
+            start_url = self.preloader.web_handler.open_question(q_num, self.cfg['db_engine'], self.cfg['is_check_new_save_versions'])
         #check that the question still doesn't exist in the log before writing just the url to it
         if start_url is not None and not self.question_log.is_q_exist(q_num):
             self.question_log.update_q_url(q_num, start_url)
@@ -133,6 +137,20 @@ class Leetcode():
         if end_url not in (None, 'https://www.db-fiddle.com/'):
             self.question_log.update_q_state(q_num, end_url)
 
+    def check_is_forkable(self, q_num):
+        '''
+        Check that
+        1) the question has not been saved to the personal state log yet.
+        2) The question has a public url to fork
+        3) The user wants to fork an exiting public url
+        '''
+        cond1 = not self.question_log.is_q_exist(q_num)
+        cond2 = self.question_log.is_q_public_exist(q_num)
+        cond3 = self.cfg['is_fork_public_url']
+        if cond1 and cond2 and cond3:
+            return True
+        return False
+
     def open_new_question(self, q_num=None):
         if q_num is None:
             q_num = self.get_current_q_num()
@@ -141,14 +159,20 @@ class Leetcode():
             prev_save_url = self.question_log.q_state['url'][q_num]
         except KeyError:
             prev_save_url = None
-        start_url = self.web_handler.open_question(q_num, self.cfg['db_engine'], self.cfg['is_check_new_save_versions'], prev_save_url)
+
+        if self.check_is_forkable(q_num):
+            public_url = self.question_log.q_public_urls[q_num]
+            start_url = self.web_handler.open_fork(q_num, public_url)
+        else:
+            start_url = self.web_handler.open_question(q_num, self.cfg['db_engine'], self.cfg['is_check_new_save_versions'], prev_save_url)
+
         if start_url is not None:
             self.question_log.update_q_state(q_num, start_url)
         else:
             print('\n\nCAUTION: For question {}, not able to parse tables from leetcode.jp'.format(q_num))
 
         if self.__is_preload_questions:
-            #start a new thread if current thread had already started
+            #start preloading now that user selected question is loaded
             self.preloader.thread = ExcThread(target=self.preload, args=(self.cfg['n_to_preload'], self.cfg['n_same_level_to_preload']))
             self.preloader.thread.start()
 

@@ -9,12 +9,14 @@ class QuestionLog:
     Secondly, q_state, which is the state of each of the questions, specifically which question the user is currently on, and a list of all questions that user has a db-fiddle of, including the URL of the db-fiddle.
     '''
 
-    def __init__(self, q_elements_path, q_state_path):
+    def __init__(self, q_elements_path, q_state_path, q_public_urls_path):
         self.q_elements_path = q_elements_path
         self.q_state_path = q_state_path
+        self.q_public_urls_path = q_public_urls_path
 
         self.q_elements = self.__read_dict(q_elements_path)
         self.q_state = self.__read_dict(q_state_path)
+        self.q_public_urls = self.__read_dict(q_public_urls_path)
 
         if self.q_state is None:
             #If question state does not exist yet, start at question 176
@@ -43,3 +45,6 @@ class QuestionLog:
 
     def is_q_exist(self, q_num):
         return q_num in self.q_state['url'].keys()
+
+    def is_q_public_exist(self, q_num):
+        return q_num in self.q_public_urls.keys()

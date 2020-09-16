@@ -569,6 +569,14 @@ class WebHandler():
         WebDriverWait(self.driver, self.__WAIT_LONG).until_not(EC.url_to_be(pre_url))
         return self.driver.current_url
 
+    def db_fiddle_fork(self):
+        self.driver.switch_to.window(self.db_win)
+        pre_url = self.driver.current_url
+        WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.element_to_be_clickable((By.ID, 'forkButton'))).click()
+        #after forking, wait until url has changed to return the saved url
+        WebDriverWait(self.driver, self.__WAIT_LONG).until_not(EC.url_to_be(pre_url))
+        return self.driver.current_url
+
     def close_question(self, is_save_before_closing):
         '''closes the question and returns the end_url for QuestionLog'''
 
@@ -585,6 +593,14 @@ class WebHandler():
             pass
         self.close_question_windows()
         return end_url
+
+    def open_fork(self, q_num, db_public_url):
+        self.open_leetcode_win(q_num)
+        self.open_db_win(db_public_url)
+        forked_url = self.db_fiddle_fork()
+        self.click_query_table()
+        self.driver.switch_to.window(self.leet_win)
+        return forked_url
 
     def open_question(self, q_num, db_engine, is_check_new_save_versions, db_prev_url=None):
         '''

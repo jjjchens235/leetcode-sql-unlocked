@@ -2,7 +2,7 @@
 The main module that instantiates and controls the behavior and interaction of all objects, most notably objects from WebHandler, QuestionNodes, and QuestionLog.
 '''
 import os
-import time
+from shutil import copyfile
 import logging
 import traceback
 from datetime import datetime
@@ -18,6 +18,7 @@ LOG_DIR = 'logs'
 ERROR_LOG = 'error.log'
 Q_ELEMENTS_LOG = 'q_elements.log'
 Q_STATE_LOG = 'q_state.log'
+Q_PUBLIC_URLS_LOG = 'q_public_urls.log'
 
 def setup_dirs():
     try:
@@ -30,12 +31,19 @@ def setup_dirs():
     except NameError:
         print('CAUTION: __file__ variable could not be determined so directory check could not be completed')
 
+def copy_public_urls(target):
+    src = os.path.join(os.path.dirname(os.getcwd()), 'db_fiddle_public_urls.md')
+    copyfile(src, target)
+
 def get_leetcode(headless=False):
     setup_dirs()
     driver_path = os.path.join(DRIVER_DIR, DRIVER)
     q_elements_path = os.path.join(LOG_DIR, Q_ELEMENTS_LOG)
     q_state_path = os.path.join(LOG_DIR, Q_STATE_LOG)
-    lc = Leetcode(driver_path, q_elements_path, q_state_path, headless=headless)
+    q_public_urls_path = os.path.join(LOG_DIR, Q_PUBLIC_URLS_LOG)
+    if not os.path.exists(q_public_urls_path):
+        copy_public_urls(q_public_urls_path)
+    lc = Leetcode(driver_path, q_elements_path, q_state_path, q_public_urls_path, headless=headless)
     return lc
 
 def main():

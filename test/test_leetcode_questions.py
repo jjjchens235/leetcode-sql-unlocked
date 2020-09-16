@@ -7,6 +7,7 @@ Every user option is tested and the state of the log is compared with the state 
 '''
 from datetime import datetime
 import unittest
+from unittest.mock import MagicMock
 import time
 import os
 import shutil
@@ -58,6 +59,7 @@ class TestLeetcode(unittest.TestCase):
             remove(curr_driver_dir)
         self.lc = leetcode_sql_unlocked.get_leetcode(headless=False)
         self.lc.options('loff')
+        self.lc.cfg['is_fork_public_url'] = False
 
     @classmethod
     def tearDownClass(self):
@@ -260,12 +262,12 @@ class TestLeetcode(unittest.TestCase):
         #dictionary size should increase by 2, for the new current problem, and the one preloaded problem
         self.assertTrue(len(url_keys) == len3+2)
 
-        #turn load off to setup a bigger preload
+        #turn load off to setup just testing preload on its own
         self.options('load off')
         user_input = '601'
         self.options_with_join(user_input)
 
-        #preload 3 next, and 3 next same level problems
+        #still on 601, preload 3 next, and 3 next same level problems
         self.options('load on')
         self.lc.preload(3, 3)
         #the preloaded problems should match these 6 hardcoded ones
@@ -275,10 +277,41 @@ class TestLeetcode(unittest.TestCase):
 
         #make sure regular loading, and preloading are working fine after running preload on its own
         user_input = '1097'
+        self.lc.web_handler.open_question = MagicMock(return_value='MagicMock unit testing')
         self.options_with_join(user_input)
+        self.assertTrue(self.lc.web_handler.open_question.called)
         self.assertTrue(self.in_url_keys([1097, 1098, 1127]))
         q_num = int(user_input)
         self.assertTrue(self.is_current_question_match(q_num))
+
+
+
+        #----------- forking ----------------
+        self.lc.cfg['is_fork_public_url'] = True
+        #not forkable because it already exists in q_state
+        self.assertFalse(self.lc.check_is_forkable((1098)))
+
+        #test 1107
+        self.assertTrue(self.lc.check_is_forkable(1107))
+        #check the public url
+        self.assertEqual(self.lc.question_log.q_public_urls[1107], 'https://www.db-fiddle.com/f/rpHL2nahbWYo2oe6caR6c5/0')
+        print('check visually if possible that 1107 was not created from scratch but was loaded from public url')
+        user_input = '1107'
+        self.options_with_join(user_input)
+        #check that 1112 was preloaded as well
+        self.assertTrue(self.in_url_keys([1107, 1112]))
+        #make sure public url and preloaded forked url are not the same
+        self.assertNotEqual(self.get_q_state()['url'][1112], 'https://www.db-fiddle.com/f/eAUrBTavdFTLYM9FbgasKr/0')
+
+        #mock method - check that open_fork() was called
+        self.lc.web_handler.open_fork = MagicMock(return_value='MagicMock unit testing')
+        self.lc.web_handler.open_question = MagicMock()
+        self.options_with_join('1141')
+        self.assertTrue(self.lc.web_handler.open_fork.called)
+        self.assertFalse(self.lc.web_handler.open_question.called)
+        self.assertTrue(self.in_url_keys([1141, 1142]))
+
+
 
 if __name__ == '__main__':
     unittest.main()
