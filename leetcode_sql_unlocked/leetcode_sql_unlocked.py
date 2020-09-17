@@ -33,6 +33,9 @@ def setup_dirs():
 
 def copy_public_urls(target):
     src = os.path.join(os.path.dirname(os.getcwd()), 'db_fiddle_public_urls.md')
+    if not os.path.exists(src):
+        with open(src, 'w') as f:
+            f.write('{}')
     copyfile(src, target)
 
 def get_leetcode(headless=False):
