@@ -1,4 +1,4 @@
-Through the command line, the user can easily access all ~125 LeetCode SQL/Database questions, even locked ones!! and automatically generate the tables in db-fiddle.com, a SQL database playground environment.
+Through the command line, the user can easily access all ~125 LeetCode SQL/Database questions, and automatically generate the tables in db-fiddle.com, a SQL database playground environment.
 
 
 ![GIF demo](img/demo2.gif)
