@@ -313,7 +313,7 @@ class Leetcode():
             self.turn_off_preloading()
         return True
 
-    def __exit(self, msg="Exiting program"):
+    def exit(self, msg="Exiting program"):
         self.web_handler.close_all()
         if self.__is_preload_questions:
             self.preload_finish()
@@ -326,11 +326,8 @@ class Leetcode():
         '''
         If the user inputs 'e' into console, we can save the state of the question to the log before closing everything
         '''
-        try:
-            self.close_current_question()
-        except:
-            pass
-        return self.__exit(msg)
+        self.close_current_question()
+        return self.exit(msg)
 
     def get_user_input(self):
         user_input = input("\n\n----------------------------------------\nYou are on {name}\n\nWhat would you like to do next?\nType 'n' for next problem, 'h' for more help/options, 'e' to exit\n".format(name=self.get_current_q().name))

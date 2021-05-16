@@ -13,7 +13,7 @@ The following db-fiddle settings can be optionally configured inside leetcode_sq
 
 DB_ENGINE: User has the following databases to choose from: MYSQL_8, POSTGRES_12, and SQLITE_3_3. Default is MYSQL_8.
 
-SAVE_BEFORE_CLOSING: If True, before going to the next question or exiting, will save the current fiddle automatically. Note that the fiddle is always saved when first created- this setting is for all proceeding saves. Default is False, meaning the user must manually click save if they want the changes they made to persist beyond the current session.
+SAVE_BEFORE_CLOSING: If True, before going to the next question or exiting, will save the current fiddle automatically. Note that the fiddle is always saved when first created- this setting is for all proceeding saves. Default is True, meaning the fiddle will be saved.
 
 CHECK_NEW_SAVE_VERSIONS: If True, will check for any newer versions of the db-fiddle. Default is False. This setting should only be switched to True if user is planning to make changes to their db-fiddles outside of this program.
 '''
@@ -27,7 +27,7 @@ sqlite: 11}
 
 cfg = dict(
     db_engine = __DB_OPTIONS[mysql],
-    is_save_before_closing = False,
+    is_save_before_closing = True,
     is_check_new_save_versions = False,
     is_fork_public_url = True,
     is_preload = True,

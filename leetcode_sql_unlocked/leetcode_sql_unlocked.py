@@ -71,7 +71,7 @@ def main():
         if tb:
             now = datetime.now().strftime("\n%Y-%m-%d %H:%M:%S ")
             logging.exception(now + msg + '\n' + tb)
-            lc.exit_option(msg)
+            lc.exit(msg)
 
 if __name__ == '__main__':
     main()

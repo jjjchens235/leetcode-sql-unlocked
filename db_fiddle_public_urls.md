@@ -33,7 +33,7 @@
 602: 'https://www.db-fiddle.com/f/9xFMVcRZ99Q9ZF3eHRnvUR/0',
 603: 'https://www.db-fiddle.com/f/7n6GDoC9YzTCPj2Ja72zZr/0',
 607: 'https://www.db-fiddle.com/f/g83C6ZUVhZfgdckkZqdEYN/0',
-608: 'https://www.db-fiddle.com/f/43t4yLYPSAQUSCTufeUczK/0',
+608: 'https://www.db-fiddle.com/f/bv7cf7TdJs71aTsjsgHorp/0',
 610: 'https://www.db-fiddle.com/f/ge3yQ19Mqva2CkP69qoQL6/0',
 612: 'https://www.db-fiddle.com/f/jdqRKVUFsfg5N65LGtog6r/0',
 613: 'https://www.db-fiddle.com/f/2MJss5RG7D3CxuB5r2iajZ/0',
