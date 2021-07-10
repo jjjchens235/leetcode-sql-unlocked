@@ -2,6 +2,7 @@ import re
 import time
 import itertools
 from datetime import datetime
+import requests
 
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
@@ -35,28 +36,25 @@ class WebHandler():
 
     def get_question_elements(self):
         '''
-        From the leetcode website, captures question data
+        Use Leetcode API to obtain question data
         '''
-        url = 'https://leetcode.com/problemset/database/?'
-        win = self.open_new_win(url)
         try:
-            print('\nObtaining leetcode question elements from leetcode.com')
-            #view all problems, not just first 50
-            WebDriverWait(self.driver, self.__WAIT_LONG).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="question-app"]/div/div[2]/div[2]/div[2]/table/tbody[2]/tr/td/span[1]/select/option[4]'))).click()
-            #note that this element can only be found using selenium (not requests, or beautifulsoup)because the table is generated after the fact in js
-            element = WebDriverWait(self.driver, self.__WAIT_SHORT).until(EC.presence_of_element_located((By.CLASS_NAME, 'reactable-data')))
-
-            text =  [' '.join(line.split()) for line in element.text.split('\n')]
             question_elements = {}
+            levelnum_to_level = {1: 'easy', 2: 'medium', 3: 'hard'}
 
-            for i, line in enumerate(text):
-                if (i+1) % 3 == 0:
-                    q_num = int(text[i-2])
-                    level = line.split()[1].lower()
-                    q_name = text[i-2] + ': ' + text[i-1] + ', ' + level
-                    question_elements[q_num] = {'level':level, 'name':q_name}
-            self.close_window(win)
+            url = 'https://leetcode.com/api/problems/database/'
+            json = requests.get(url).json()
+            questions = json['stat_status_pairs']
+
+            for question in questions:
+                q_num = question['stat']['frontend_question_id']
+                level_num = question['difficulty']['level']
+                q_level = levelnum_to_level[level_num]
+                q_title = question['stat']['question__title']
+                q_full_title = f"{q_num}: {q_title}, {q_level}"
+                question_elements[q_num] = {'level': q_level, 'name': q_full_title}
             return question_elements
+
         except:
             print('\n Could not find question elements from leetcode.com')
 
