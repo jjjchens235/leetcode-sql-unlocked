@@ -23,19 +23,8 @@ class Leetcode():
         self.web_handler = WebHandler(self.driver_path, headless)
         self.question_log = QuestionLog(q_elements_path, q_state_path, q_public_urls_path)
 
-        def is_stale_elements(elements_path, days_till_stale=13):
-            mtime = os.path.getmtime(elements_path)
-            return (datetime.now() - datetime.fromtimestamp(mtime)).days > days_till_stale
-
-        if not os.path.exists(q_elements_path) or is_stale_elements(q_elements_path):
-            #if path exists, it must be a stale question list
-            if os.path.exists(q_elements_path):
-                print('\nQuestion list have not been updated recently. Will update from LeetCode in case there are any new problems')
-            q_elements = self.web_handler.get_question_elements()
-            self.question_log.write_dict(q_elements_path, q_elements)
-        #don't re-download elements, read from q_elements log directly
-        else:
-            q_elements = self.question_log.q_elements
+        q_elements = self.web_handler.get_question_elements()
+        self.question_log.write_dict(q_elements_path, q_elements)
         self.question_nodes = QuestionNodes(q_elements, self.question_log.q_state['current'])
 
         if self.cfg['is_preload']:
