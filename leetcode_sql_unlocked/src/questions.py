@@ -33,7 +33,7 @@ class QuestionNodes:
         prev_q_med = None
         prev_q_hard = None
 
-        for q_num in question_elements.keys():
+        for q_num in sorted(question_elements.keys()):
             name = question_elements[q_num]['name']
             level = question_elements[q_num]['level']
             q = QuestionNode(q_num, name, level)
