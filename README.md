@@ -1,3 +1,5 @@
+**Update 11/14/2021**: I just tried this program for the first time in months and it looks like `leetcode.jp` no longer hosts any LeetCode questions. I guess the good times had to come to an end. You can still access old db-fiddle URL's [here](db_fiddle_public_urls.md), but the problem statements are gone.
+
 Through the command line, the user can easily access all ~125 LeetCode SQL/Database questions, and automatically generate the tables in db-fiddle.com, a SQL database playground environment.
 
 

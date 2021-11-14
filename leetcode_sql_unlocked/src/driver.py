@@ -20,31 +20,51 @@ class EventListener(AbstractEventListener):
 
 class Driver:
     #agent src: https://www.whatismybrowser.com/guides/the-latest-user-agent/edge
-    __WEB_USER_AGENT            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36 Edg/85.0.564.41"
+    __WEB_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36 Edg/94.0.992.50"
 
-    def __download_driver(driver_path, system, driver_dl_index=0):
+
+    def __download_driver(driver_path, system, try_count=0):
         # determine latest chromedriver version
         #version selection faq: http://chromedriver.chromium.org/downloads/version-selection
+        CHROME_RELEASE_URL = "https://sites.google.com/chromium.org/driver/downloads?authuser=0"
         try:
-            response = urlopen("https://sites.google.com/a/chromium.org/chromedriver/downloads", context=ssl.SSLContext(ssl.PROTOCOL_TLSv1)).read()
-        except ssl.SSLError as e:
-            response = urlopen("https://sites.google.com/a/chromium.org/chromedriver/downloads").read()
+            response = urlopen(
+                CHROME_RELEASE_URL,
+                context=ssl.SSLContext(ssl.PROTOCOL_TLS)
+            ).read()
+        except ssl.SSLError:
+            response = urlopen(
+                CHROME_RELEASE_URL
+            ).read()
         #download second latest version,most recent is sometimes not out to public yet
-        latest_version = re.findall(b"ChromeDriver \d{2,3}\.0\.\d{4}\.\d+",response)[driver_dl_index].decode().split()[1]
-        print('\nDownloading chrome driver version: ' + latest_version)
+
+        latest_version = re.findall(
+            b"ChromeDriver \d{2,3}\.0\.\d{4}\.\d+", response
+        )[try_count].decode().split()[1]
+        print('Downloading chromedriver version: ' + latest_version)
 
         if system == "Windows":
-            url = "https://chromedriver.storage.googleapis.com/{}/chromedriver_win32.zip".format(latest_version)
+            url = "https://chromedriver.storage.googleapis.com/{}/chromedriver_win32.zip".format(
+                latest_version
+            )
         elif system == "Darwin":
-            url = "https://chromedriver.storage.googleapis.com/{}/chromedriver_mac64.zip".format(latest_version)
+            url = "https://chromedriver.storage.googleapis.com/{}/chromedriver_mac64.zip".format(
+                latest_version
+            )
         elif system == "Linux":
-            url = "https://chromedriver.storage.googleapis.com/{}/chromedriver_linux64.zip".format(latest_version)
+            url = "https://chromedriver.storage.googleapis.com/{}/chromedriver_linux64.zip".format(
+                latest_version
+            )
 
         try:
-            response = urlopen(url, context=ssl.SSLContext(ssl.PROTOCOL_TLSv1)) # context args for mac
-        except ssl.SSLError as e:
-            response = urlopen(url)# context args for mac
-        zip_file_path = os.path.join(os.path.dirname(driver_path), os.path.basename(url))
+            response = urlopen(
+                url, context=ssl.SSLContext(ssl.PROTOCOL_TLS)
+            )  # context args for mac
+        except ssl.SSLError:
+            response = urlopen(url)  # context args for mac
+        zip_file_path = os.path.join(
+            os.path.dirname(driver_path), os.path.basename(url)
+        )
         with open(zip_file_path, 'wb') as zip_file:
             while True:
                 chunk = response.read(1024)
